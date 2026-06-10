@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { decryptClassConfig } from "@/lib/class-config";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -58,11 +59,7 @@ export async function POST(request: Request) {
   try {
     const form = await request.formData();
     const file = form.get("file");
-    const apiKey = String(form.get("apiKey") ?? "").trim();
-    const model = String(form.get("model") ?? "gpt-5.5");
-    const assignment = String(form.get("assignment") ?? "").trim();
-    const rubric = String(form.get("rubric") ?? "").trim();
-    const instruction = String(form.get("instruction") ?? "").trim();
+    const classToken = String(form.get("classToken") ?? "").trim();
     const studentGrade = String(form.get("studentGrade") ?? "").trim();
     const studentClass = String(form.get("studentClass") ?? "").trim();
     const studentName = String(form.get("studentName") ?? "").trim();
@@ -71,8 +68,8 @@ export async function POST(request: Request) {
     if (!(file instanceof File) || file.type !== "application/pdf") {
       return NextResponse.json({ error: "올바른 PDF 파일이 필요합니다." }, { status: 400 });
     }
-    if (!apiKey || !assignment || !rubric) {
-      return NextResponse.json({ error: "API 키, 과제 설명, 루브릭을 확인해 주세요." }, { status: 400 });
+    if (!classToken) {
+      return NextResponse.json({ error: "선생님이 만든 학급 링크로 접속해 주세요." }, { status: 400 });
     }
     if (!studentGrade || !studentClass || !studentName || !studentTeam) {
       return NextResponse.json(
@@ -84,18 +81,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "PDF 파일은 15MB 이하여야 합니다." }, { status: 413 });
     }
 
+    let classConfig;
+    try {
+      classConfig = decryptClassConfig(classToken);
+    } catch {
+      return NextResponse.json(
+        { error: "학급 링크가 올바르지 않습니다. 선생님께 새 링크를 요청해 주세요." },
+        { status: 400 },
+      );
+    }
+
     const bytes = Buffer.from(await file.arrayBuffer());
     const fileData = `data:application/pdf;base64,${bytes.toString("base64")}`;
     const prompt = `당신은 학생의 과학 카드뉴스를 평가하는 공정하고 따뜻한 교사입니다.
 
 [과제]
-${assignment}
+${classConfig.assignment}
 
 [평가 루브릭]
-${rubric}
+${classConfig.rubric}
 
 [추가 지시]
-${instruction}
+${classConfig.instruction}
 
 [제출자]
 학년: ${studentGrade}
@@ -112,11 +119,11 @@ PDF의 모든 페이지에서 글, 사진, 도표, 레이아웃을 살펴보세�
     const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${classConfig.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model,
+        model: classConfig.model,
         input: [
           {
             role: "user",
