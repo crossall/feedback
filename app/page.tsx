@@ -81,8 +81,10 @@ export default function Home() {
   const [view, setView] = useState<"student" | "teacher">("student");
   const [settings, setSettings] = useState(defaultSettings);
   const [saved, setSaved] = useState(false);
+  const [studentGrade, setStudentGrade] = useState("");
+  const [studentClass, setStudentClass] = useState("");
   const [studentName, setStudentName] = useState("");
-  const [studentNumber, setStudentNumber] = useState("");
+  const [studentTeam, setStudentTeam] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -136,8 +138,14 @@ export default function Home() {
       setError("먼저 교사용 설정에서 OpenAI API 키를 입력해 주세요.");
       return;
     }
-    if (!studentName.trim() || !file) {
-      setError("이름과 PDF 파일을 모두 입력해 주세요.");
+    if (
+      !studentGrade.trim() ||
+      !studentClass.trim() ||
+      !studentName.trim() ||
+      !studentTeam.trim() ||
+      !file
+    ) {
+      setError("학년, 반, 이름, 모둠과 PDF 파일을 모두 입력해 주세요.");
       return;
     }
 
@@ -146,8 +154,10 @@ export default function Home() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("studentGrade", studentGrade);
+      formData.append("studentClass", studentClass);
       formData.append("studentName", studentName);
-      formData.append("studentNumber", studentNumber);
+      formData.append("studentTeam", studentTeam);
       formData.append("apiKey", settings.apiKey);
       formData.append("model", settings.model);
       formData.append("assignment", settings.assignment);
@@ -201,8 +211,10 @@ export default function Home() {
                 <div><h2>작품 제출하기</h2><p>평가받을 카드뉴스를 준비해 주세요.</p></div>
               </div>
               <div className="field-row">
+                <label className="field"><span>학년 <b>*</b></span><input value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} placeholder="예: 5학년" /></label>
+                <label className="field"><span>반 <b>*</b></span><input value={studentClass} onChange={(e) => setStudentClass(e.target.value)} placeholder="예: 2반" /></label>
                 <label className="field"><span>이름 <b>*</b></span><input value={studentName} onChange={(e) => setStudentName(e.target.value)} placeholder="이름을 입력하세요" /></label>
-                <label className="field"><span>학번</span><input value={studentNumber} onChange={(e) => setStudentNumber(e.target.value)} placeholder="예: 20315" /></label>
+                <label className="field"><span>모둠 <b>*</b></span><input value={studentTeam} onChange={(e) => setStudentTeam(e.target.value)} placeholder="예: 새싹 모둠" /></label>
               </div>
               <label
                 className={`drop-zone ${dragging ? "dragging" : ""} ${file ? "has-file" : ""}`}

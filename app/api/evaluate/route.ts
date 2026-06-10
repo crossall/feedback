@@ -63,14 +63,22 @@ export async function POST(request: Request) {
     const assignment = String(form.get("assignment") ?? "").trim();
     const rubric = String(form.get("rubric") ?? "").trim();
     const instruction = String(form.get("instruction") ?? "").trim();
+    const studentGrade = String(form.get("studentGrade") ?? "").trim();
+    const studentClass = String(form.get("studentClass") ?? "").trim();
     const studentName = String(form.get("studentName") ?? "").trim();
-    const studentNumber = String(form.get("studentNumber") ?? "").trim();
+    const studentTeam = String(form.get("studentTeam") ?? "").trim();
 
     if (!(file instanceof File) || file.type !== "application/pdf") {
       return NextResponse.json({ error: "올바른 PDF 파일이 필요합니다." }, { status: 400 });
     }
     if (!apiKey || !assignment || !rubric) {
       return NextResponse.json({ error: "API 키, 과제 설명, 루브릭을 확인해 주세요." }, { status: 400 });
+    }
+    if (!studentGrade || !studentClass || !studentName || !studentTeam) {
+      return NextResponse.json(
+        { error: "학년, 반, 이름, 모둠을 모두 입력해 주세요." },
+        { status: 400 },
+      );
     }
     if (file.size > 15 * 1024 * 1024) {
       return NextResponse.json({ error: "PDF 파일은 15MB 이하여야 합니다." }, { status: 413 });
@@ -90,8 +98,10 @@ ${rubric}
 ${instruction}
 
 [제출자]
+학년: ${studentGrade}
+반: ${studentClass}
 이름: ${studentName}
-학번: ${studentNumber || "미입력"}
+모둠: ${studentTeam}
 
 PDF의 모든 페이지에서 글, 사진, 도표, 레이아웃을 살펴보세요.
 루브릭의 항목명과 배점을 그대로 최대한 유지해 항목별로 평가하세요.
