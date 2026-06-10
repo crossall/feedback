@@ -109,6 +109,11 @@ main {
 .settings-actions { display: flex; align-items: center; gap: 20px; margin-top: 4px; }
 .text-button { border: 0; background: transparent; color: #67766e; text-decoration: underline; font-size: 12px; }
 .save-button { max-width: 240px; margin: 0 0 0 auto; }
+.storage-message { margin: -5px 0 2px; padding: 12px 14px; color: var(--moss); background: #edf3dd; border-left: 3px solid var(--leaf); font-size: 12px; font-weight: 700; }
+.teacher-storage-actions { display: flex; align-items: center; gap: 14px; padding-top: 4px; }
+.secondary-button { border: 1px solid var(--ink); background: transparent; color: var(--ink); padding: 11px 17px; font-size: 12px; font-weight: 800; transition: .2s; }
+.secondary-button:hover { background: var(--ink); color: white; }
+.danger-text-button { border: 0; background: transparent; color: #9a4d3a; padding: 10px 4px; font-size: 11px; text-decoration: underline; }
 .security-note { margin-top: 35px; padding: 20px; border-left: 3px solid var(--leaf); background: rgba(255,255,255,.48); }
 .security-note strong { display: block; font-size: 13px; margin-bottom: 6px; }
 .security-note p { margin: 0; color: #6d7b74; font-size: 11px; line-height: 1.6; }
@@ -182,5 +187,6 @@ footer { border-top: 1px solid rgba(23,53,43,.12); text-align: center; padding: 
   .score-ring strong { font-size: 27px; }
   .result-top h2 { font-size: 27px; }
   .settings-actions { flex-direction: column-reverse; align-items: stretch; }
+  .teacher-storage-actions { justify-content: space-between; }
   .save-button { max-width: none; }
 }

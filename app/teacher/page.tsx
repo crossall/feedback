@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { defaultClassConfig } from "@/lib/defaults";
+
+const teacherSettingsKey = "leafback-teacher-settings-v1";
 
 export default function TeacherPage() {
   const [settings, setSettings] = useState(defaultClassConfig);
@@ -10,6 +12,35 @@ export default function TeacherPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [storageMessage, setStorageMessage] = useState("");
+
+  useEffect(() => {
+    const stored = localStorage.getItem(teacherSettingsKey);
+    if (!stored) return;
+
+    try {
+      const restored = { ...defaultClassConfig, ...JSON.parse(stored) };
+      queueMicrotask(() => {
+        setSettings(restored);
+        setStorageMessage("이 브라우저에 저장된 설정을 불러왔어요.");
+      });
+    } catch {
+      localStorage.removeItem(teacherSettingsKey);
+    }
+  }, []);
+
+  function persistSettings(message = "API 키와 루브릭을 이 브라우저에 저장했어요.") {
+    localStorage.setItem(teacherSettingsKey, JSON.stringify(settings));
+    setStorageMessage(message);
+    window.setTimeout(() => setStorageMessage(""), 2800);
+  }
+
+  function clearSavedSettings() {
+    localStorage.removeItem(teacherSettingsKey);
+    setSettings(defaultClassConfig);
+    setClassUrl("");
+    setStorageMessage("이 브라우저에 저장된 교사 설정을 삭제했어요.");
+  }
 
   async function createClassLink(event: FormEvent) {
     event.preventDefault();
@@ -24,6 +55,8 @@ export default function TeacherPage() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "학급 링크를 만들지 못했습니다.");
+
+      persistSettings("설정을 저장하고 새 학급 링크를 만들었어요.");
       setClassUrl(`${window.location.origin}/?class=${encodeURIComponent(data.token)}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "학급 링크를 만들지 못했습니다.");
@@ -55,16 +88,17 @@ export default function TeacherPage() {
           <h1>우리 반의<br /><em>평가 기준을 만들어요.</em></h1>
           <p>API 키와 루브릭을 입력해 학급 전용 링크를 만드세요. 학생들은 받은 링크에서 바로 작품을 제출할 수 있습니다.</p>
           <div className="security-note">
-            <strong>API 키는 안전하게 처리됩니다</strong>
-            <p>입력한 설정은 서버에서 암호화되며 학생 화면에는 API 키가 표시되지 않습니다.</p>
+            <strong>다음에도 바로 이어서 사용할 수 있어요</strong>
+            <p>API 키와 루브릭은 이 교사 기기의 브라우저에 저장됩니다. 공용 컴퓨터에서는 사용 후 반드시 저장 정보를 삭제해 주세요.</p>
           </div>
         </div>
 
         <form className="settings-form" onSubmit={createClassLink}>
           <div className="settings-title">
             <span>01</span>
-            <div><h2>학급 평가 설정</h2><p>설정을 마치면 학생용 링크가 생성됩니다.</p></div>
+            <div><h2>학급 평가 설정</h2><p>저장된 설정은 다음 접속 때 자동으로 불러옵니다.</p></div>
           </div>
+          {storageMessage && <div className="storage-message">{storageMessage}</div>}
           <label className="field full">
             <span>학급 링크 이름 <b>*</b></span>
             <input value={settings.classTitle} onChange={(e) => setSettings({ ...settings, classTitle: e.target.value })} />
@@ -72,7 +106,7 @@ export default function TeacherPage() {
           <label className="field full">
             <span>OpenAI API 키 <b>*</b></span>
             <input type="password" value={settings.apiKey} onChange={(e) => setSettings({ ...settings, apiKey: e.target.value })} placeholder="sk-..." autoComplete="off" />
-            <small>학생에게 전달되는 링크에는 암호화된 형태로만 포함됩니다.</small>
+            <small>학생 링크에는 암호화된 형태로만 포함되며 학생 화면에 표시되지 않습니다.</small>
           </label>
           <label className="field full">
             <span>평가 모델</span>
@@ -96,9 +130,13 @@ export default function TeacherPage() {
             <textarea rows={4} value={settings.instruction} onChange={(e) => setSettings({ ...settings, instruction: e.target.value })} />
           </label>
           {error && <div className="error-message">{error}</div>}
+          <div className="teacher-storage-actions">
+            <button type="button" className="secondary-button" onClick={() => persistSettings()}>설정만 저장하기</button>
+            <button type="button" className="danger-text-button" onClick={clearSavedSettings}>저장 정보 삭제</button>
+          </div>
           <div className="settings-actions">
             <button type="button" className="text-button" onClick={() => setSettings({ ...defaultClassConfig, apiKey: settings.apiKey })}>기본 루브릭으로 되돌리기</button>
-            <button className="primary-button save-button" disabled={loading}>{loading ? "암호화 링크 만드는 중..." : "학생용 학급 링크 만들기"}</button>
+            <button className="primary-button save-button" disabled={loading}>{loading ? "암호화 링크 만드는 중..." : "저장하고 학생용 링크 만들기"}</button>
           </div>
 
           {classUrl && (
@@ -107,7 +145,7 @@ export default function TeacherPage() {
               <strong>이 주소를 학생들에게 전달해 주세요.</strong>
               <div><input readOnly value={classUrl} /><button type="button" onClick={copyLink}>{copied ? "복사됨" : "링크 복사"}</button></div>
               <a href={classUrl} target="_blank" rel="noreferrer">학생 화면 미리 보기 →</a>
-              <p>API 키나 루브릭을 바꾸려면 새 링크를 만들어 다시 전달해 주세요.</p>
+              <p>API 키나 루브릭을 바꾸면 새 링크를 만들어 다시 전달해 주세요.</p>
             </div>
           )}
         </form>
