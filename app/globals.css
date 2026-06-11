@@ -31,6 +31,7 @@ main {
 .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-family: var(--font-display), serif; font-weight: 700; font-size: 22px; }
 .brand small { font: 600 8px/1 var(--font-body), sans-serif; letter-spacing: .22em; writing-mode: vertical-rl; color: var(--leaf); }
 .brand-mark { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: var(--ink); color: var(--lime); }
+.header-links { display: flex; align-items: center; gap: 8px; }
 .view-switch { display: flex; gap: 6px; padding: 5px; border: 1px solid var(--line); background: rgba(255,255,255,.45); border-radius: 99px; }
 .view-switch button { border: 0; background: transparent; color: #617068; padding: 9px 16px; border-radius: 99px; display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; }
 .view-switch button.active { background: var(--ink); color: white; box-shadow: 0 4px 15px rgba(23,53,43,.18); }
@@ -78,6 +79,14 @@ main {
 .drop-zone strong { font-size: 14px; }
 .drop-zone p { margin: 0; color: #849087; font-size: 11px; }
 .upload-icon { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; background: var(--lime); color: var(--ink); margin-bottom: 6px; }
+.document-link-field { margin-top: 22px; padding: 22px; border: 1px solid var(--line); background: #f9f8f1; display: grid; grid-template-columns: 52px 1fr; gap: 0 15px; align-items: center; }
+.document-link-field .upload-icon { grid-row: 1; margin: 0; }
+.document-link-copy { display: flex; flex-direction: column; gap: 4px; }
+.document-link-copy strong { font-size: 13px; }
+.document-link-copy b { color: var(--rust); }
+.document-link-copy small { color: #77847d; font-size: 11px; line-height: 1.45; }
+.document-link-field input { grid-column: 1 / -1; width: 100%; margin-top: 16px; border: 1px solid var(--line); border-radius: 3px; background: white; color: var(--ink); padding: 14px; outline: none; transition: .2s; }
+.document-link-field input:focus { border-color: var(--leaf); box-shadow: 0 0 0 3px rgba(77,123,95,.1); }
 .primary-button { width: 100%; min-height: 54px; border: 0; background: var(--ink); color: white; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 22px; font-weight: 800; transition: .2s; }
 .primary-button:hover:not(:disabled) { background: var(--moss); transform: translateY(-2px); box-shadow: 0 10px 24px rgba(23,53,43,.18); }
 .primary-button:disabled { opacity: .72; cursor: wait; }
@@ -143,12 +152,12 @@ main {
 .criterion-head b { font: 700 15px var(--font-display), serif; }
 .score-bar { height: 4px; background: #e9e9df; margin: 13px 0; }
 .score-bar i { display: block; height: 100%; background: var(--leaf); }
-.criteria-grid article p { margin: 0; color: #68766f; font-size: 12px; line-height: 1.65; }
+.criteria-grid article p { margin: 0; color: #68766f; font-size: 13px; line-height: 1.65; }
 .feedback-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
 .feedback-columns > div { padding: 26px; background: #f4f5ea; }
 .feedback-columns > div:last-child { background: #f8eee7; }
 .feedback-columns h3 { font: 700 20px var(--font-display), serif; margin: 0 0 16px; }
-.feedback-columns p { display: flex; gap: 9px; align-items: flex-start; margin: 10px 0; color: #53635b; font-size: 12px; line-height: 1.55; }
+.feedback-columns p { display: flex; gap: 9px; align-items: flex-start; margin: 10px 0; color: #53635b; font-size: 13px; line-height: 1.55; }
 .feedback-columns p svg, .feedback-columns p > span { flex: 0 0 auto; color: var(--leaf); }
 .next-step { margin-top: 22px; padding: 22px 26px; display: flex; align-items: center; gap: 17px; background: var(--ink); color: white; }
 .next-step > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; background: var(--lime); color: var(--ink); }
@@ -175,6 +184,8 @@ footer { border-top: 1px solid rgba(23,53,43,.12); text-align: center; padding: 
 @media (max-width: 520px) {
   .brand { font-size: 17px; gap: 7px; }
   .brand-mark { width: 34px; height: 34px; }
+  .header-links { gap: 4px; }
+  .header-links .teacher-link:first-child { display: none; }
   .view-switch button { font-size: 11px; padding: 8px 9px; }
   .teacher-link { padding: 8px 10px; font-size: 10px; }
   .hero h1 { font-size: 42px; }

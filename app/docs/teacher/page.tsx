@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { defaultClassConfig } from "@/lib/defaults";
+import { defaultGoogleDocsClassConfig } from "@/lib/google-docs-defaults";
 
-const teacherSettingsKey = "leafback-teacher-settings-v1";
+const teacherSettingsKey = "leafback-google-docs-teacher-settings-v1";
 
-export default function TeacherPage() {
-  const [settings, setSettings] = useState(defaultClassConfig);
+export default function GoogleDocsTeacherPage() {
+  const [settings, setSettings] = useState(defaultGoogleDocsClassConfig);
   const [classUrl, setClassUrl] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,7 +19,7 @@ export default function TeacherPage() {
     if (!stored) return;
 
     try {
-      const restored = { ...defaultClassConfig, ...JSON.parse(stored) };
+      const restored = { ...defaultGoogleDocsClassConfig, ...JSON.parse(stored) };
       queueMicrotask(() => {
         setSettings(restored);
         setStorageMessage("이 브라우저에 저장된 설정을 불러왔어요.");
@@ -37,7 +37,7 @@ export default function TeacherPage() {
 
   function clearSavedSettings() {
     localStorage.removeItem(teacherSettingsKey);
-    setSettings(defaultClassConfig);
+    setSettings(defaultGoogleDocsClassConfig);
     setClassUrl("");
     setStorageMessage("이 브라우저에 저장된 교사 설정을 삭제했어요.");
   }
@@ -57,7 +57,7 @@ export default function TeacherPage() {
       if (!response.ok) throw new Error(data.error || "학급 링크를 만들지 못했습니다.");
 
       persistSettings("설정을 저장하고 새 학급 링크를 만들었어요.");
-      setClassUrl(`${window.location.origin}/?class=${encodeURIComponent(data.token)}`);
+      setClassUrl(`${window.location.origin}/docs?class=${encodeURIComponent(data.token)}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "학급 링크를 만들지 못했습니다.");
     } finally {
@@ -74,22 +74,22 @@ export default function TeacherPage() {
   return (
     <main>
       <header className="site-header">
-        <Link className="brand" href="/">
+        <Link className="brand" href="/docs">
           <span className="brand-mark">葉</span>
           <span>잎새 피드백</span>
           <small>LEAFBACK</small>
         </Link>
         <nav className="header-links">
-          <Link className="teacher-link" href="/docs/teacher">Google Docs 교사 설정</Link>
-          <Link className="teacher-link" href="/">학생 화면 보기</Link>
+          <Link className="teacher-link" href="/teacher">PDF 교사 설정</Link>
+          <Link className="teacher-link" href="/docs">학생 화면 보기</Link>
         </nav>
       </header>
 
       <section className="teacher-page">
         <div className="teacher-intro">
-          <div className="eyebrow"><span /> TEACHER STUDIO</div>
-          <h1>우리 반의<br /><em>평가 기준을 만들어요.</em></h1>
-          <p>API 키와 루브릭을 입력해 학급 전용 링크를 만드세요. 학생들은 받은 링크에서 바로 PDF 작품을 제출할 수 있습니다.</p>
+          <div className="eyebrow"><span /> DOCS TEACHER STUDIO</div>
+          <h1>Google Docs의<br /><em>평가 기준을 만들어요.</em></h1>
+          <p>과제와 루브릭을 입력해 학급 전용 링크를 만드세요. 학생들은 받은 링크에서 Google Docs 글을 제출할 수 있습니다.</p>
           <div className="security-note">
             <strong>다음에도 바로 이어서 사용할 수 있어요</strong>
             <p>API 키와 루브릭은 이 교사 기기의 브라우저에 저장됩니다. 공용 컴퓨터에서는 사용 후 반드시 저장 정보를 삭제해 주세요.</p>
@@ -99,7 +99,7 @@ export default function TeacherPage() {
         <form className="settings-form" onSubmit={createClassLink}>
           <div className="settings-title">
             <span>01</span>
-            <div><h2>학급 평가 설정</h2><p>저장된 설정은 다음 접속 때 자동으로 불러옵니다.</p></div>
+            <div><h2>Google Docs 평가 설정</h2><p>PDF 평가 설정과 별도로 저장됩니다.</p></div>
           </div>
           {storageMessage && <div className="storage-message">{storageMessage}</div>}
           <label className="field full">
@@ -138,13 +138,13 @@ export default function TeacherPage() {
             <button type="button" className="danger-text-button" onClick={clearSavedSettings}>저장 정보 삭제</button>
           </div>
           <div className="settings-actions">
-            <button type="button" className="text-button" onClick={() => setSettings({ ...defaultClassConfig, apiKey: settings.apiKey })}>기본 루브릭으로 되돌리기</button>
+            <button type="button" className="text-button" onClick={() => setSettings({ ...defaultGoogleDocsClassConfig, apiKey: settings.apiKey })}>기본 루브릭으로 되돌리기</button>
             <button className="primary-button save-button" disabled={loading}>{loading ? "암호화 링크 만드는 중..." : "저장하고 학생용 링크 만들기"}</button>
           </div>
 
           {classUrl && (
             <div className="class-link-result">
-              <span>학급 링크가 준비됐어요</span>
+              <span>Google Docs 학급 링크가 준비됐어요</span>
               <strong>이 주소를 학생들에게 전달해 주세요.</strong>
               <div><input readOnly value={classUrl} /><button type="button" onClick={copyLink}>{copied ? "복사됨" : "링크 복사"}</button></div>
               <a href={classUrl} target="_blank" rel="noreferrer">학생 화면 미리 보기 →</a>
@@ -153,7 +153,7 @@ export default function TeacherPage() {
           )}
         </form>
       </section>
-      <footer>LEAFBACK · PDF 교사용 평가 설정</footer>
+      <footer>LEAFBACK · GOOGLE DOCS 교사용 평가 설정</footer>
     </main>
   );
 }
