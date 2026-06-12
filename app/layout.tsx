@@ -15,8 +15,8 @@ const body = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "잎새 피드백 | 식물 카드뉴스 AI 평가",
-  description: "교사의 루브릭에 따라 학생의 식물 카드뉴스 PDF를 평가하는 AI 피드백 도구",
+  title: "잎새 피드백 | 교사용 AI 평가 플랫폼",
+  description: "PDF와 Google Docs 과제의 평가 기준을 만들고 학생에게 제공하는 교사용 AI 피드백 플랫폼",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

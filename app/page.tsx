@@ -1,4 +1,5 @@
 import StudentApp from "./student-app";
+import TeacherLanding from "./teacher-landing";
 
 export default async function Home({
   searchParams,
@@ -6,5 +7,6 @@ export default async function Home({
   searchParams: Promise<{ class?: string }>;
 }) {
   const params = await searchParams;
-  return <StudentApp classToken={params.class ?? ""} />;
+  if (params.class) return <StudentApp classToken={params.class} />;
+  return <TeacherLanding />;
 }

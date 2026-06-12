@@ -3,11 +3,19 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { defaultClassConfig } from "@/lib/defaults";
+import {
+  isTeacherId,
+  loadEvaluation,
+  saveEvaluation,
+  type TeacherId,
+} from "@/lib/teacher-evaluations";
 
 const teacherSettingsKey = "leafback-teacher-settings-v1";
 
 export default function TeacherPage() {
   const [settings, setSettings] = useState(defaultClassConfig);
+  const [teacherId, setTeacherId] = useState<TeacherId | null>(null);
+  const [evaluationId, setEvaluationId] = useState("");
   const [classUrl, setClassUrl] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,6 +23,26 @@ export default function TeacherPage() {
   const [storageMessage, setStorageMessage] = useState("");
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedTeacherId = params.get("teacher") ?? "";
+    const requestedEvaluationId = params.get("evaluation") ?? "";
+
+    if (isTeacherId(requestedTeacherId)) {
+      queueMicrotask(() => setTeacherId(requestedTeacherId));
+      if (requestedEvaluationId) {
+        const saved = loadEvaluation(requestedTeacherId, requestedEvaluationId);
+        if (saved?.type === "pdf") {
+          queueMicrotask(() => {
+            setEvaluationId(saved.id);
+            setSettings(saved.config);
+            setStorageMessage("보관함에서 저장된 PDF 평가를 불러왔어요.");
+          });
+          return;
+        }
+      }
+      return;
+    }
+
     const stored = localStorage.getItem(teacherSettingsKey);
     if (!stored) return;
 
@@ -29,7 +57,16 @@ export default function TeacherPage() {
     }
   }, []);
 
-  function persistSettings(message = "API 키와 루브릭을 이 브라우저에 저장했어요.") {
+  function persistSettings(message = "평가를 보관함에 저장했어요.") {
+    if (teacherId) {
+      const saved = saveEvaluation(teacherId, "pdf", settings, evaluationId || undefined);
+      setEvaluationId(saved.id);
+      window.history.replaceState(
+        null,
+        "",
+        `/teacher?teacher=${teacherId}&evaluation=${saved.id}`,
+      );
+    }
     localStorage.setItem(teacherSettingsKey, JSON.stringify(settings));
     setStorageMessage(message);
     window.setTimeout(() => setStorageMessage(""), 2800);
@@ -56,7 +93,7 @@ export default function TeacherPage() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "학급 링크를 만들지 못했습니다.");
 
-      persistSettings("설정을 저장하고 새 학급 링크를 만들었어요.");
+      persistSettings("평가를 저장하고 새 학생용 링크를 만들었어요.");
       setClassUrl(`${window.location.origin}/?class=${encodeURIComponent(data.token)}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "학급 링크를 만들지 못했습니다.");
@@ -80,7 +117,8 @@ export default function TeacherPage() {
           <small>LEAFBACK</small>
         </Link>
         <nav className="header-links">
-          <Link className="teacher-link" href="/docs/teacher">Google Docs 교사 설정</Link>
+          {teacherId && <Link className="teacher-link" href={`/teacher/${teacherId}`}>내 평가 보관함</Link>}
+          <Link className="teacher-link" href={teacherId ? `/docs/teacher?teacher=${teacherId}` : "/docs/teacher"}>Google Docs 교사 설정</Link>
           <Link className="teacher-link" href="/">학생 화면 보기</Link>
         </nav>
       </header>
@@ -91,8 +129,8 @@ export default function TeacherPage() {
           <h1>우리 반의<br /><em>평가 기준을 만들어요.</em></h1>
           <p>API 키와 루브릭을 입력해 학급 전용 링크를 만드세요. 학생들은 받은 링크에서 바로 PDF 작품을 제출할 수 있습니다.</p>
           <div className="security-note">
-            <strong>다음에도 바로 이어서 사용할 수 있어요</strong>
-            <p>API 키와 루브릭은 이 교사 기기의 브라우저에 저장됩니다. 공용 컴퓨터에서는 사용 후 반드시 저장 정보를 삭제해 주세요.</p>
+            <strong>{teacherId ? `${teacherId} 선생님의 보관함에 저장돼요` : "다음에도 바로 이어서 사용할 수 있어요"}</strong>
+            <p>평가와 API 키는 이 교사 기기의 브라우저에 저장됩니다. 공용 컴퓨터에서는 사용 후 반드시 저장 정보를 삭제해 주세요.</p>
           </div>
         </div>
 
@@ -134,7 +172,9 @@ export default function TeacherPage() {
           </label>
           {error && <div className="error-message">{error}</div>}
           <div className="teacher-storage-actions">
-            <button type="button" className="secondary-button" onClick={() => persistSettings()}>설정만 저장하기</button>
+            <button type="button" className="secondary-button" onClick={() => persistSettings()}>
+              {evaluationId ? "평가 수정 저장" : "평가 보관함에 저장"}
+            </button>
             <button type="button" className="danger-text-button" onClick={clearSavedSettings}>저장 정보 삭제</button>
           </div>
           <div className="settings-actions">
