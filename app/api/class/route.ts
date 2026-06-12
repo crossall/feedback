@@ -1,13 +1,20 @@
 import { NextResponse } from "next/server";
 import { encryptClassConfig, type ClassConfig } from "@/lib/class-config";
+import { getStoredApiKey } from "@/lib/server/teacher-store";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as Partial<ClassConfig>;
+    const body = (await request.json()) as Partial<ClassConfig> & {
+      teacherId?: string;
+      evaluationId?: string;
+    };
+    const storedApiKey = body.teacherId && body.evaluationId
+      ? await getStoredApiKey(body.teacherId, body.evaluationId)
+      : "";
     const config: ClassConfig = {
-      apiKey: body.apiKey?.trim() ?? "",
+      apiKey: body.apiKey?.trim() || storedApiKey,
       model: body.model?.trim() || "gpt-5.5",
       classTitle: body.classTitle?.trim() ?? "",
       assignment: body.assignment?.trim() ?? "",

@@ -12,18 +12,28 @@ import {
 export default function TeacherDashboard({ teacherId }: { teacherId: TeacherId }) {
   const [evaluations, setEvaluations] = useState<SavedEvaluation[]>([]);
   const [ready, setReady] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    queueMicrotask(() => {
-      setEvaluations(loadEvaluations(teacherId));
-      setReady(true);
+    queueMicrotask(async () => {
+      try {
+        setEvaluations(await loadEvaluations(teacherId));
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "평가 보관함을 불러오지 못했습니다.");
+      } finally {
+        setReady(true);
+      }
     });
   }, [teacherId]);
 
-  function removeEvaluation(evaluationId: string) {
+  async function removeEvaluation(evaluationId: string) {
     if (!window.confirm("이 평가를 보관함에서 삭제할까요?")) return;
-    deleteEvaluation(teacherId, evaluationId);
-    setEvaluations(loadEvaluations(teacherId));
+    try {
+      await deleteEvaluation(teacherId, evaluationId);
+      setEvaluations(await loadEvaluations(teacherId));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "평가를 삭제하지 못했습니다.");
+    }
   }
 
   return (
@@ -78,6 +88,7 @@ export default function TeacherDashboard({ teacherId }: { teacherId: TeacherId }
             <span>02</span>
             <div><h2>저장한 평가</h2><p>평가 기준을 열어 수정하거나 학생 링크를 다시 만드세요.</p></div>
           </div>
+          {error && <div className="error-message">{error}</div>}
           {!ready ? (
             <div className="empty-library">평가 보관함을 불러오는 중...</div>
           ) : evaluations.length === 0 ? (

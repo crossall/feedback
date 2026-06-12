@@ -10,64 +10,56 @@ export type SavedEvaluation = {
   teacherId: TeacherId;
   type: EvaluationType;
   config: ClassConfig;
+  hasApiKey: boolean;
   createdAt: string;
   updatedAt: string;
 };
-
-const storagePrefix = "leafback-teacher-evaluations-v1";
 
 export function isTeacherId(value: string): value is TeacherId {
   return teacherIds.includes(value as TeacherId);
 }
 
-function storageKey(teacherId: TeacherId) {
-  return `${storagePrefix}:${teacherId}`;
-}
-
-export function loadEvaluations(teacherId: TeacherId): SavedEvaluation[] {
-  const raw = localStorage.getItem(storageKey(teacherId));
-  if (!raw) return [];
-
-  try {
-    const parsed = JSON.parse(raw) as SavedEvaluation[];
-    return parsed
-      .filter((evaluation) => evaluation.teacherId === teacherId)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  } catch {
-    localStorage.removeItem(storageKey(teacherId));
-    return [];
+async function readJson<T>(response: Response): Promise<T> {
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || "평가 저장소를 불러오지 못했습니다.");
   }
+  return data as T;
 }
 
-export function loadEvaluation(teacherId: TeacherId, evaluationId: string) {
-  return loadEvaluations(teacherId).find(({ id }) => id === evaluationId);
+export async function loadEvaluations(teacherId: TeacherId) {
+  const response = await fetch(`/api/teachers/${teacherId}/evaluations`, {
+    cache: "no-store",
+  });
+  const data = await readJson<{ evaluations: SavedEvaluation[] }>(response);
+  return data.evaluations;
 }
 
-export function saveEvaluation(
+export async function loadEvaluation(teacherId: TeacherId, evaluationId: string) {
+  const evaluations = await loadEvaluations(teacherId);
+  return evaluations.find(({ id }) => id === evaluationId);
+}
+
+export async function saveEvaluation(
   teacherId: TeacherId,
   type: EvaluationType,
   config: ClassConfig,
   evaluationId?: string,
 ) {
-  const evaluations = loadEvaluations(teacherId);
-  const existing = evaluationId
-    ? evaluations.find(({ id }) => id === evaluationId)
-    : undefined;
-  const now = new Date().toISOString();
-  const saved: SavedEvaluation = {
-    id: existing?.id ?? crypto.randomUUID(),
-    teacherId,
-    type,
-    config,
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
-  };
-  const next = [saved, ...evaluations.filter(({ id }) => id !== saved.id)];
-  localStorage.setItem(storageKey(teacherId), JSON.stringify(next));
-  return saved;
+  const response = await fetch(`/api/teachers/${teacherId}/evaluations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type, config, evaluationId }),
+  });
+  const data = await readJson<{ evaluation: SavedEvaluation }>(response);
+  return data.evaluation;
 }
 
-export function deleteEvaluation(teacherId: TeacherId, evaluationId: string) {
-  const next = loadEvaluations(teacherId).filter(({ id }) => id !== evaluationId);
-  localStorage.setItem(storageKey(teacherId), JSON.stringify(next));
+export async function deleteEvaluation(teacherId: TeacherId, evaluationId: string) {
+  const response = await fetch(`/api/teachers/${teacherId}/evaluations`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ evaluationId }),
+  });
+  await readJson<{ success: true }>(response);
 }

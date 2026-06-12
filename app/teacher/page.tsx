@@ -10,8 +10,6 @@ import {
   type TeacherId,
 } from "@/lib/teacher-evaluations";
 
-const teacherSettingsKey = "leafback-teacher-settings-v1";
-
 export default function TeacherPage() {
   const [settings, setSettings] = useState(defaultClassConfig);
   const [teacherId, setTeacherId] = useState<TeacherId | null>(null);
@@ -21,6 +19,7 @@ export default function TeacherPage() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [storageMessage, setStorageMessage] = useState("");
+  const [hasStoredApiKey, setHasStoredApiKey] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -30,53 +29,42 @@ export default function TeacherPage() {
     if (isTeacherId(requestedTeacherId)) {
       queueMicrotask(() => setTeacherId(requestedTeacherId));
       if (requestedEvaluationId) {
-        const saved = loadEvaluation(requestedTeacherId, requestedEvaluationId);
-        if (saved?.type === "pdf") {
-          queueMicrotask(() => {
+        queueMicrotask(async () => {
+          try {
+            const saved = await loadEvaluation(requestedTeacherId, requestedEvaluationId);
+            if (saved?.type !== "pdf") return;
             setEvaluationId(saved.id);
             setSettings(saved.config);
-            setStorageMessage("보관함에서 저장된 PDF 평가를 불러왔어요.");
-          });
-          return;
-        }
+            setHasStoredApiKey(saved.hasApiKey);
+            setStorageMessage("서버 보관함에서 저장된 PDF 평가를 불러왔어요.");
+          } catch (caught) {
+            setError(caught instanceof Error ? caught.message : "평가를 불러오지 못했습니다.");
+          }
+        });
       }
       return;
     }
-
-    const stored = localStorage.getItem(teacherSettingsKey);
-    if (!stored) return;
-
-    try {
-      const restored = { ...defaultClassConfig, ...JSON.parse(stored) };
-      queueMicrotask(() => {
-        setSettings(restored);
-        setStorageMessage("이 브라우저에 저장된 설정을 불러왔어요.");
-      });
-    } catch {
-      localStorage.removeItem(teacherSettingsKey);
-    }
   }, []);
 
-  function persistSettings(message = "평가를 보관함에 저장했어요.") {
-    if (teacherId) {
-      const saved = saveEvaluation(teacherId, "pdf", settings, evaluationId || undefined);
-      setEvaluationId(saved.id);
-      window.history.replaceState(
-        null,
-        "",
-        `/teacher?teacher=${teacherId}&evaluation=${saved.id}`,
-      );
-    }
-    localStorage.setItem(teacherSettingsKey, JSON.stringify(settings));
+  async function persistSettings(message = "평가를 서버 보관함에 저장했어요.") {
+    if (!teacherId) throw new Error("교사 ID로 입장한 뒤 평가를 저장해 주세요.");
+    const saved = await saveEvaluation(teacherId, "pdf", settings, evaluationId || undefined);
+    setEvaluationId(saved.id);
+    setHasStoredApiKey(saved.hasApiKey);
+    window.history.replaceState(
+      null,
+      "",
+      `/teacher?teacher=${teacherId}&evaluation=${saved.id}`,
+    );
     setStorageMessage(message);
     window.setTimeout(() => setStorageMessage(""), 2800);
+    return saved;
   }
 
-  function clearSavedSettings() {
-    localStorage.removeItem(teacherSettingsKey);
+  function resetSettings() {
     setSettings(defaultClassConfig);
     setClassUrl("");
-    setStorageMessage("이 브라우저에 저장된 교사 설정을 삭제했어요.");
+    setStorageMessage("입력 내용을 기본값으로 되돌렸어요.");
   }
 
   async function createClassLink(event: FormEvent) {
@@ -85,15 +73,19 @@ export default function TeacherPage() {
     setError("");
     setClassUrl("");
     try {
+      const saved = await persistSettings("평가를 저장하고 새 학생용 링크를 만들었어요.");
       const response = await fetch("/api/class", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({
+          ...settings,
+          teacherId,
+          evaluationId: saved.id,
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "학급 링크를 만들지 못했습니다.");
 
-      persistSettings("평가를 저장하고 새 학생용 링크를 만들었어요.");
       setClassUrl(`${window.location.origin}/?class=${encodeURIComponent(data.token)}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "학급 링크를 만들지 못했습니다.");
@@ -130,7 +122,7 @@ export default function TeacherPage() {
           <p>API 키와 루브릭을 입력해 학급 전용 링크를 만드세요. 학생들은 받은 링크에서 바로 PDF 작품을 제출할 수 있습니다.</p>
           <div className="security-note">
             <strong>{teacherId ? `${teacherId} 선생님의 보관함에 저장돼요` : "다음에도 바로 이어서 사용할 수 있어요"}</strong>
-            <p>평가와 API 키는 이 교사 기기의 브라우저에 저장됩니다. 공용 컴퓨터에서는 사용 후 반드시 저장 정보를 삭제해 주세요.</p>
+            <p>평가와 API 키는 암호화되어 서버에 저장됩니다. 다른 기기에서도 같은 교사 ID로 이어서 사용할 수 있어요.</p>
           </div>
         </div>
 
@@ -146,8 +138,8 @@ export default function TeacherPage() {
           </label>
           <label className="field full">
             <span>OpenAI API 키 <b>*</b></span>
-            <input type="password" value={settings.apiKey} onChange={(e) => setSettings({ ...settings, apiKey: e.target.value })} placeholder="sk-..." autoComplete="off" />
-            <small>학생 링크에는 암호화된 형태로만 포함되며 학생 화면에 표시되지 않습니다.</small>
+            <input type="password" value={settings.apiKey} onChange={(e) => setSettings({ ...settings, apiKey: e.target.value })} placeholder={hasStoredApiKey ? "서버에 저장된 API 키 사용 중" : "sk-..."} autoComplete="off" />
+            <small>{hasStoredApiKey ? "새 키를 입력하지 않으면 서버에 저장된 기존 키를 계속 사용합니다." : "API 키는 서버에서 암호화해 저장하며 브라우저로 다시 전송하지 않습니다."}</small>
           </label>
           <label className="field full">
             <span>평가 모델</span>
@@ -172,10 +164,17 @@ export default function TeacherPage() {
           </label>
           {error && <div className="error-message">{error}</div>}
           <div className="teacher-storage-actions">
-            <button type="button" className="secondary-button" onClick={() => persistSettings()}>
+            <button type="button" className="secondary-button" onClick={async () => {
+              setError("");
+              try {
+                await persistSettings();
+              } catch (caught) {
+                setError(caught instanceof Error ? caught.message : "평가를 저장하지 못했습니다.");
+              }
+            }}>
               {evaluationId ? "평가 수정 저장" : "평가 보관함에 저장"}
             </button>
-            <button type="button" className="danger-text-button" onClick={clearSavedSettings}>저장 정보 삭제</button>
+            <button type="button" className="danger-text-button" onClick={resetSettings}>입력 초기화</button>
           </div>
           <div className="settings-actions">
             <button type="button" className="text-button" onClick={() => setSettings({ ...defaultClassConfig, apiKey: settings.apiKey })}>기본 루브릭으로 되돌리기</button>
