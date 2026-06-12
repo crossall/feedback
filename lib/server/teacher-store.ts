@@ -2,7 +2,11 @@ import "server-only";
 
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 import { get, put } from "@vercel/blob";
-import type { ClassConfig } from "@/lib/class-config";
+import {
+  defaultOutputOptions,
+  normalizeOutputOptions,
+  type ClassConfig,
+} from "@/lib/class-config";
 import {
   isTeacherId,
   type EvaluationType,
@@ -77,7 +81,14 @@ function toPublicEvaluation(evaluation: StoredEvaluation): SavedEvaluation {
     id: evaluation.id,
     teacherId: evaluation.teacherId,
     type: evaluation.type,
-    config: { ...evaluation.config, apiKey: "" },
+    config: {
+      ...evaluation.config,
+      apiKey: "",
+      outputOptions: {
+        ...defaultOutputOptions,
+        ...evaluation.config.outputOptions,
+      },
+    },
     hasApiKey: Boolean(evaluation.encryptedApiKey),
     createdAt: evaluation.createdAt,
     updatedAt: evaluation.updatedAt,
@@ -113,6 +124,11 @@ export async function saveTeacherEvaluation(input: {
       assignment: input.config.assignment.trim(),
       rubric: input.config.rubric.trim(),
       instruction: input.config.instruction.trim(),
+      outputOptions: {
+        ...normalizeOutputOptions(input.config.outputOptions),
+        appendToGoogleDoc: input.type === "docs"
+          && input.config.outputOptions?.appendToGoogleDoc === true,
+      },
     },
     encryptedApiKey: apiKey
       ? encryptApiKey(apiKey)

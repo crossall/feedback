@@ -1,5 +1,32 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 
+export type ReportFormat = "none" | "pdf" | "html";
+
+export type EvaluationOutputOptions = {
+  showOnScreen: boolean;
+  appendToGoogleDoc: boolean;
+  reportFormat: ReportFormat;
+};
+
+export const defaultOutputOptions: EvaluationOutputOptions = {
+  showOnScreen: true,
+  appendToGoogleDoc: false,
+  reportFormat: "none",
+};
+
+export function normalizeOutputOptions(
+  value?: Partial<EvaluationOutputOptions>,
+): EvaluationOutputOptions {
+  const reportFormat = value?.reportFormat;
+  return {
+    showOnScreen: value?.showOnScreen !== false,
+    appendToGoogleDoc: value?.appendToGoogleDoc === true,
+    reportFormat: reportFormat === "pdf" || reportFormat === "html"
+      ? reportFormat
+      : "none",
+  };
+}
+
 export type ClassConfig = {
   apiKey: string;
   model: string;
@@ -7,6 +34,7 @@ export type ClassConfig = {
   assignment: string;
   rubric: string;
   instruction: string;
+  outputOptions: EvaluationOutputOptions;
 };
 
 function getKey() {
@@ -43,5 +71,8 @@ export function decryptClassConfig(token: string): ClassConfig {
   if (!config.apiKey || !config.assignment || !config.rubric || !config.classTitle) {
     throw new Error("Incomplete class config.");
   }
-  return config;
+  return {
+    ...config,
+    outputOptions: normalizeOutputOptions(config.outputOptions),
+  };
 }

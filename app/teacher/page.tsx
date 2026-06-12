@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { defaultClassConfig } from "@/lib/defaults";
+import EvaluationOutputOptionsField from "@/app/evaluation-output-options";
 import {
   isTeacherId,
   loadEvaluation,
@@ -48,6 +49,9 @@ export default function TeacherPage() {
 
   async function persistSettings(message = "평가를 서버 보관함에 저장했어요.") {
     if (!teacherId) throw new Error("교사 ID로 입장한 뒤 평가를 저장해 주세요.");
+    if (!settings.outputOptions.showOnScreen && settings.outputOptions.reportFormat === "none") {
+      throw new Error("평가 결과 제공 방식을 하나 이상 선택해 주세요.");
+    }
     const saved = await saveEvaluation(teacherId, "pdf", settings, evaluationId || undefined);
     setEvaluationId(saved.id);
     setHasStoredApiKey(saved.hasApiKey);
@@ -162,6 +166,11 @@ export default function TeacherPage() {
             <span>추가 프롬프트</span>
             <textarea rows={4} value={settings.instruction} onChange={(e) => setSettings({ ...settings, instruction: e.target.value })} />
           </label>
+          <EvaluationOutputOptionsField
+            value={settings.outputOptions}
+            onChange={(outputOptions) => setSettings({ ...settings, outputOptions })}
+            allowGoogleDocsAppend={false}
+          />
           {error && <div className="error-message">{error}</div>}
           <div className="teacher-storage-actions">
             <button type="button" className="secondary-button" onClick={async () => {

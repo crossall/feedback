@@ -1,23 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
-
-type Evaluation = {
-  title: string;
-  totalScore: number;
-  maxScore: number;
-  summary: string;
-  criteria: Array<{
-    name: string;
-    score: number;
-    maxScore: number;
-    feedback: string;
-  }>;
-  strengths: string[];
-  improvements: string[];
-  nextStep: string;
-};
+import { FormEvent, useEffect, useRef, useState } from "react";
+import EvaluationDelivery from "@/app/evaluation-delivery";
+import type { Evaluation, EvaluationResponse } from "@/lib/evaluation-result";
 
 function Icon({
   name,
@@ -44,7 +30,16 @@ export default function GoogleDocsStudentApp({ classToken }: { classToken: strin
   const [documentUrl, setDocumentUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<Evaluation | null>(null);
+  const [result, setResult] = useState<EvaluationResponse | null>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (result) {
+      window.setTimeout(() => {
+        resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    }
+  }, [result]);
 
   async function evaluate(event: FormEvent) {
     event.preventDefault();
@@ -151,7 +146,22 @@ export default function GoogleDocsStudentApp({ classToken }: { classToken: strin
           </aside>
         </div>
 
-        {result && <ResultPanel result={result} studentName={studentName} />}
+        {result && (
+          <div ref={resultRef} className="evaluation-output">
+            <EvaluationDelivery
+              result={result}
+              student={{
+                grade: studentGrade,
+                className: studentClass,
+                name: studentName,
+                team: studentTeam,
+              }}
+            />
+            {result.outputOptions.showOnScreen && (
+              <ResultPanel result={result} studentName={studentName} />
+            )}
+          </div>
+        )}
       </section>
       <footer>LEAFBACK · GOOGLE DOCS 글쓰기 평가</footer>
     </main>

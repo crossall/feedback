@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { decryptClassConfig } from "@/lib/class-config";
+import type { Evaluation } from "@/lib/evaluation-result";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -155,7 +156,11 @@ PDF의 모든 페이지에서 글, 사진, 도표, 레이아웃을 살펴보세�
       return NextResponse.json({ error: "모델이 평가 결과를 반환하지 않았습니다. 다시 시도해 주세요." }, { status: 502 });
     }
 
-    return NextResponse.json(JSON.parse(outputText));
+    const evaluation = JSON.parse(outputText) as Evaluation;
+    return NextResponse.json({
+      ...evaluation,
+      outputOptions: classConfig.outputOptions,
+    });
   } catch (error) {
     console.error("Evaluation failed:", error);
     return NextResponse.json(

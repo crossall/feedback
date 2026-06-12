@@ -1,4 +1,4 @@
-import type { ClassConfig } from "./class-config";
+import { defaultOutputOptions, type ClassConfig } from "./class-config";
 
 export const defaultClassConfig: ClassConfig = {
   apiKey: "",
@@ -27,4 +27,5 @@ export const defaultClassConfig: ClassConfig = {
 - 맞춤법, 문장 표현, 전체 완성도가 적절한가?`,
   instruction:
     "초등학생이 이해할 수 있는 친절하고 구체적인 한국어로 피드백하세요. 확인되지 않는 내용을 지어내지 말고, PDF에서 근거를 찾기 어려운 항목은 그 사실을 명시하세요.",
+  outputOptions: { ...defaultOutputOptions },
 };

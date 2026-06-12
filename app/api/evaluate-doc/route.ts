@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { decryptClassConfig } from "@/lib/class-config";
-import { fetchGoogleDocText } from "@/lib/google-docs";
+import { appendGoogleDocText, fetchGoogleDocText } from "@/lib/google-docs";
+import { formatEvaluationText } from "@/lib/evaluation-text";
+import type { Evaluation } from "@/lib/evaluation-result";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -148,7 +150,30 @@ ${documentText}
       return NextResponse.json({ error: "모델이 평가 결과를 반환하지 않았습니다. 다시 시도해 주세요." }, { status: 502 });
     }
 
-    return NextResponse.json(JSON.parse(outputText));
+    const evaluation = JSON.parse(outputText) as Evaluation;
+    let delivery;
+    if (classConfig.outputOptions.appendToGoogleDoc) {
+      try {
+        await appendGoogleDocText(
+          documentUrl,
+          formatEvaluationText(evaluation, studentName),
+        );
+        delivery = { googleDocsAppended: true };
+      } catch (error) {
+        delivery = {
+          googleDocsAppended: false,
+          warning: error instanceof Error
+            ? error.message
+            : "Google Docs 하단에 평가를 추가하지 못했습니다.",
+        };
+      }
+    }
+
+    return NextResponse.json({
+      ...evaluation,
+      outputOptions: classConfig.outputOptions,
+      delivery,
+    });
   } catch (error) {
     console.error("Google Docs evaluation failed:", error);
     return NextResponse.json(

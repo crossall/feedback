@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { isTeacherId, type EvaluationType } from "@/lib/teacher-evaluations";
-import type { ClassConfig } from "@/lib/class-config";
+import {
+  normalizeOutputOptions,
+  type ClassConfig,
+} from "@/lib/class-config";
 import {
   deleteTeacherEvaluation,
   listTeacherEvaluations,
@@ -54,6 +57,7 @@ export async function POST(
       assignment: body.config?.assignment?.trim() ?? "",
       rubric: body.config?.rubric?.trim() ?? "",
       instruction: body.config?.instruction?.trim() ?? "",
+      outputOptions: normalizeOutputOptions(body.config?.outputOptions),
     };
     if (!config.classTitle || !config.assignment || !config.rubric) {
       return NextResponse.json(

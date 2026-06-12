@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { encryptClassConfig, type ClassConfig } from "@/lib/class-config";
+import {
+  encryptClassConfig,
+  normalizeOutputOptions,
+  type ClassConfig,
+} from "@/lib/class-config";
 import { getStoredApiKey } from "@/lib/server/teacher-store";
 
 export const runtime = "nodejs";
@@ -20,6 +24,7 @@ export async function POST(request: Request) {
       assignment: body.assignment?.trim() ?? "",
       rubric: body.rubric?.trim() ?? "",
       instruction: body.instruction?.trim() ?? "",
+      outputOptions: normalizeOutputOptions(body.outputOptions),
     };
 
     if (!config.apiKey || !config.classTitle || !config.assignment || !config.rubric) {
