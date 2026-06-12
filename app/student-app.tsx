@@ -106,16 +106,15 @@ export default function StudentApp({ classToken }: { classToken: string }) {
           <small>LEAFBACK</small>
         </Link>
         <nav className="header-links">
-          <Link className="teacher-link" href="/docs">Google Docs 평가</Link>
           <Link className="teacher-link" href="/teacher">교사용 페이지</Link>
         </nav>
       </header>
 
       <section className="student-page">
         <div className="hero">
-          <div className="eyebrow"><span /> SCIENCE PROJECT REVIEW</div>
-          <h1>식물의 이야기를<br /><em>한 장씩</em> 들려주세요.</h1>
-          <p>완성한 카드뉴스 PDF를 올리면, 선생님의 평가 기준에 따라<br className="desktop-only" /> 꼼꼼한 AI 피드백을 받을 수 있어요.</p>
+          <div className="eyebrow"><span /> PROJECT REVIEW</div>
+          <h1>완성한 결과물을<br /><em>한 단계 더</em> 다듬어 봐요.</h1>
+          <p>과제 결과물 PDF를 올리면, 선생님의 평가 기준에 따라<br className="desktop-only" /> 꼼꼼하고 구체적인 AI 피드백을 받을 수 있어요.</p>
           <div className="botanical-sketch" aria-hidden>
             <span className="stem" /><span className="leaf leaf-one" /><span className="leaf leaf-two" /><span className="leaf leaf-three" /><span className="leaf leaf-four" />
           </div>
@@ -132,7 +131,7 @@ export default function StudentApp({ classToken }: { classToken: string }) {
           <form className="submission-card" onSubmit={evaluate}>
             <div className="card-heading">
               <span>01</span>
-              <div><h2>작품 제출하기</h2><p>평가받을 카드뉴스를 준비해 주세요.</p></div>
+              <div><h2>결과물 제출하기</h2><p>평가받을 PDF 파일을 준비해 주세요.</p></div>
             </div>
             <div className="field-row">
               <label className="field"><span>학년 <b>*</b></span><input value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} placeholder="예: 5학년" /></label>
@@ -153,12 +152,12 @@ export default function StudentApp({ classToken }: { classToken: string }) {
           </form>
 
           <aside className="guide-card">
-            <span className="guide-number">식물도감</span>
+            <span className="guide-number">SUBMISSION CHECK</span>
             <h3>평가 전,<br />한번 확인해 볼까요?</h3>
             <ul>
-              <li><span>1</span><div><strong>구조와 기능</strong><p>뿌리, 줄기, 잎의 역할을 정확하게 설명했나요?</p></div></li>
-              <li><span>2</span><div><strong>관찰과 기록</strong><p>식물의 특징을 직접 관찰한 내용이 담겨 있나요?</p></div></li>
-              <li><span>3</span><div><strong>보기 좋은 구성</strong><p>글과 이미지가 조화롭고 읽기 편한가요?</p></div></li>
+              <li><span>1</span><div><strong>과제 조건</strong><p>선생님이 안내한 주제와 필수 조건을 모두 담았나요?</p></div></li>
+              <li><span>2</span><div><strong>내용과 근거</strong><p>핵심 내용이 정확하고 설명을 뒷받침할 근거가 있나요?</p></div></li>
+              <li><span>3</span><div><strong>구성과 표현</strong><p>내용의 흐름이 자연스럽고 읽기 쉽게 구성했나요?</p></div></li>
               <li><span>4</span><div><strong>출처 표시</strong><p>참고한 자료와 이미지 출처를 적었나요?</p></div></li>
             </ul>
             <div className="tiny-note">잘 만든 작품보다<br /><b>배움이 보이는 작품</b>이 더 멋져요.</div>
@@ -182,7 +181,7 @@ export default function StudentApp({ classToken }: { classToken: string }) {
           </div>
         )}
       </section>
-      <footer>LEAFBACK · 식물의 구조와 기능 카드뉴스 평가</footer>
+      <footer>LEAFBACK · PDF 학습 결과물 평가</footer>
     </main>
   );
 }

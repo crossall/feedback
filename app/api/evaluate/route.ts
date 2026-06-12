@@ -94,7 +94,7 @@ export async function POST(request: Request) {
 
     const bytes = Buffer.from(await file.arrayBuffer());
     const fileData = `data:application/pdf;base64,${bytes.toString("base64")}`;
-    const prompt = `당신은 학생의 과학 카드뉴스를 평가하는 공정하고 따뜻한 교사입니다.
+    const prompt = `당신은 학생의 PDF 학습 결과물을 평가하는 공정하고 따뜻한 교사입니다.
 
 [과제]
 ${classConfig.assignment}
@@ -111,7 +111,8 @@ ${classConfig.instruction}
 이름: ${studentName}
 모둠: ${studentTeam}
 
-PDF의 모든 페이지에서 글, 사진, 도표, 레이아웃을 살펴보세요.
+PDF의 모든 페이지에서 글, 이미지, 표, 도표, 레이아웃 등 제출물에 포함된 요소를 살펴보세요.
+과목이나 결과물 형식을 미리 가정하지 말고, 위 과제 설명과 평가 루브릭을 기준으로 평가하세요.
 루브릭의 항목명과 배점을 그대로 최대한 유지해 항목별로 평가하세요.
 총점은 각 항목 점수의 합과 일치해야 합니다.
 강점과 개선점은 각각 2~4개로, PDF에서 확인한 구체적인 근거를 들어 작성하세요.
@@ -137,7 +138,7 @@ PDF의 모든 페이지에서 글, 사진, 도표, 레이아웃을 살펴보세�
         text: {
           format: {
             type: "json_schema",
-            name: "student_card_news_evaluation",
+            name: "student_pdf_evaluation",
             strict: true,
             schema: evaluationSchema,
           },

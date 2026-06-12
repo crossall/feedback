@@ -66,7 +66,7 @@ export default function TeacherLanding() {
           </label>
           {error && <div className="error-message">{error}</div>}
           <button className="primary-button">보관함 들어가기 <span className="arrow">→</span></button>
-          <small>현재 등록된 교사 ID: 4523, 6556</small>
+          <small>현재 등록된 교사 ID: 4523, 6556, 7244</small>
         </form>
       </section>
       <footer>LEAFBACK · TEACHER FEEDBACK PLATFORM</footer>

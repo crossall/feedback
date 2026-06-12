@@ -72,7 +72,7 @@ export default function TeacherDashboard({ teacherId }: { teacherId: TeacherId }
           <div className="creation-grid">
             <Link href={`/teacher?teacher=${teacherId}`}>
               <span className="type-icon">PDF</span>
-              <div><strong>PDF 평가 만들기</strong><p>카드뉴스, 보고서, 발표 자료를 파일로 받아 평가해요.</p></div>
+              <div><strong>PDF 평가 만들기</strong><p>보고서, 발표 자료, 활동 결과물 등 다양한 PDF를 평가해요.</p></div>
               <b>→</b>
             </Link>
             <Link href={`/docs/teacher?teacher=${teacherId}`}>

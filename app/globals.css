@@ -130,8 +130,12 @@ main {
 .output-options legend { margin-bottom: 7px; font-size: 12px; font-weight: 800; }
 .output-options legend b { color: var(--rust); }
 .output-options > p { margin: -3px 0 7px; color: #7d8983; font-size: 11px; }
-.output-options > label { display: grid; grid-template-columns: auto 42px 1fr auto; gap: 13px; align-items: center; min-height: 82px; padding: 16px; border: 1px solid var(--line); background: #fbfaf4; cursor: pointer; transition: .2s; }
-.output-options > label.selected { border-color: var(--leaf); background: #f1f5e8; box-shadow: inset 3px 0 var(--leaf); }
+.output-options > label, .output-option-group > label { display: grid; grid-template-columns: auto 42px 1fr auto; gap: 13px; align-items: center; min-height: 82px; padding: 16px; border: 1px solid var(--line); background: #fbfaf4; cursor: pointer; transition: .2s; }
+.output-options > label.selected, .output-option-group > label.selected { border-color: var(--leaf); background: #f1f5e8; box-shadow: inset 3px 0 var(--leaf); }
+.output-option-group { display: grid; }
+.docs-ownership-notice { padding: 14px 17px; border: 1px solid #e8c9b7; border-top: 0; background: #fff4e9; color: #7c5544; }
+.docs-ownership-notice strong { display: block; margin-bottom: 5px; font-size: 11px; }
+.docs-ownership-notice p { margin: 0; font-size: 10px; line-height: 1.6; }
 .output-options input { width: 17px; height: 17px; accent-color: var(--leaf); }
 .output-options .option-number { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: white; color: var(--rust); font: italic 12px var(--font-display), serif; }
 .output-options strong { display: block; margin-bottom: 4px; font-size: 12px; }

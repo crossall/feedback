@@ -1,6 +1,6 @@
 import type { ClassConfig } from "./class-config";
 
-export const teacherIds = ["4523", "6556"] as const;
+export const teacherIds = ["4523", "6556", "7244"] as const;
 
 export type TeacherId = (typeof teacherIds)[number];
 export type EvaluationType = "pdf" | "docs";

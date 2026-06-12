@@ -3,7 +3,7 @@ import { isTeacherId } from "@/lib/teacher-evaluations";
 import TeacherDashboard from "./dashboard";
 
 export function generateStaticParams() {
-  return [{ teacherId: "4523" }, { teacherId: "6556" }];
+  return [{ teacherId: "4523" }, { teacherId: "6556" }, { teacherId: "7244" }];
 }
 
 export default async function TeacherDashboardPage({

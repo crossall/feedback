@@ -34,18 +34,26 @@ export default function EvaluationOutputOptionsField({
       </label>
 
       {allowGoogleDocsAppend && (
-        <label className={value.appendToGoogleDoc ? "selected" : ""}>
-          <input
-            type="checkbox"
-            checked={value.appendToGoogleDoc}
-            onChange={(event) => update({ appendToGoogleDoc: event.target.checked })}
-          />
-          <span className="option-number">02</span>
-          <span>
-            <strong>Google Docs 하단에 평가 추가</strong>
-            <small>제출한 문서의 마지막에 점수와 피드백을 덧붙입니다. Google 쓰기 연결과 문서 편집 권한이 필요합니다.</small>
-          </span>
-        </label>
+        <div className="output-option-group">
+          <label className={value.appendToGoogleDoc ? "selected" : ""}>
+            <input
+              type="checkbox"
+              checked={value.appendToGoogleDoc}
+              onChange={(event) => update({ appendToGoogleDoc: event.target.checked })}
+            />
+            <span className="option-number">02</span>
+            <span>
+              <strong>Google Docs 하단에 평가 추가</strong>
+              <small>제출한 문서의 마지막에 점수와 피드백을 덧붙입니다.</small>
+            </span>
+          </label>
+          {value.appendToGoogleDoc && (
+            <div className="docs-ownership-notice">
+              <strong>교사 계정이 소유한 문서만 사용할 수 있어요.</strong>
+              <p>교사가 자신의 Google 계정에서 문서를 만든 뒤 학생에게 편집 권한을 주세요. 학생이 직접 생성하고 소유한 문서에는 평가를 추가할 수 없습니다.</p>
+            </div>
+          )}
+        </div>
       )}
 
       <label className={value.reportFormat !== "none" ? "selected" : ""}>
