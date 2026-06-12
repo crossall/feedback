@@ -65,9 +65,9 @@ export async function POST(request: Request) {
     if (!classToken) {
       return NextResponse.json({ error: "선생님이 만든 학급 링크로 접속해 주세요." }, { status: 400 });
     }
-    if (!studentGrade || !studentClass || !studentName || !studentTeam) {
+    if (!studentGrade || !studentClass || !studentName) {
       return NextResponse.json(
-        { error: "학년, 반, 이름, 모둠을 모두 입력해 주세요." },
+        { error: "학년, 반, 이름을 모두 입력해 주세요." },
         { status: 400 },
       );
     }
@@ -107,7 +107,7 @@ ${classConfig.instruction}
 학년: ${studentGrade}
 반: ${studentClass}
 이름: ${studentName}
-모둠: ${studentTeam}
+모둠: ${studentTeam || "개인 제출"}
 
 [학생이 제출한 글]
 ${documentText}
@@ -157,6 +157,8 @@ ${documentText}
         await appendGoogleDocText(
           documentUrl,
           formatEvaluationText(evaluation, studentName),
+          classConfig.teacherId ?? "",
+          new URL(request.url).origin,
         );
         delivery = { googleDocsAppended: true };
       } catch (error) {

@@ -25,6 +25,7 @@ export async function POST(request: Request) {
       rubric: body.rubric?.trim() ?? "",
       instruction: body.instruction?.trim() ?? "",
       outputOptions: normalizeOutputOptions(body.outputOptions),
+      teacherId: body.teacherId?.trim() || undefined,
     };
 
     if (!config.apiKey || !config.classTitle || !config.assignment || !config.rubric) {

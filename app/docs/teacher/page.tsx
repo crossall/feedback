@@ -21,6 +21,10 @@ export default function GoogleDocsTeacherPage() {
   const [copied, setCopied] = useState(false);
   const [storageMessage, setStorageMessage] = useState("");
   const [hasStoredApiKey, setHasStoredApiKey] = useState(false);
+  const [googleAuth, setGoogleAuth] = useState({
+    configured: false,
+    connected: false,
+  });
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -29,6 +33,23 @@ export default function GoogleDocsTeacherPage() {
 
     if (isTeacherId(requestedTeacherId)) {
       queueMicrotask(() => setTeacherId(requestedTeacherId));
+      queueMicrotask(async () => {
+        try {
+          const response = await fetch(
+            `/api/google/oauth/status?teacher=${requestedTeacherId}`,
+            { cache: "no-store" },
+          );
+          if (response.ok) setGoogleAuth(await response.json());
+        } catch {
+          // The option panel will keep showing the setup guidance.
+        }
+      });
+      const oauthResult = params.get("oauth");
+      if (oauthResult === "connected") {
+        queueMicrotask(() => setStorageMessage("Google 계정 연결이 완료됐어요."));
+      } else if (oauthResult === "not-configured") {
+        queueMicrotask(() => setError("플랫폼의 Google OAuth 앱 설정이 먼저 필요합니다."));
+      }
       if (requestedEvaluationId) {
         queueMicrotask(async () => {
           try {
@@ -81,6 +102,13 @@ export default function GoogleDocsTeacherPage() {
     setError("");
     setClassUrl("");
     try {
+      if (settings.outputOptions.appendToGoogleDoc && !googleAuth.connected) {
+        throw new Error(
+          googleAuth.configured
+            ? "Google Docs 쓰기 기능을 사용하려면 먼저 Google 계정을 연결해 주세요."
+            : "Google Docs 쓰기 기능을 사용하려면 플랫폼의 Google OAuth 앱 설정이 필요합니다.",
+        );
+      }
       const saved = await persistSettings("평가를 저장하고 새 학생용 링크를 만들었어요.");
       const response = await fetch("/api/class", {
         method: "POST",
@@ -174,6 +202,14 @@ export default function GoogleDocsTeacherPage() {
             value={settings.outputOptions}
             onChange={(outputOptions) => setSettings({ ...settings, outputOptions })}
             allowGoogleDocsAppend
+            googleAuth={{
+              ...googleAuth,
+              connectHref: teacherId
+                ? `/api/google/oauth/start?teacher=${teacherId}&returnTo=${encodeURIComponent(
+                  `/docs/teacher?teacher=${teacherId}${evaluationId ? `&evaluation=${evaluationId}` : ""}`,
+                )}`
+                : "#",
+            }}
           />
           {error && <div className="error-message">{error}</div>}
           <div className="teacher-storage-actions">

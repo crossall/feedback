@@ -35,6 +35,7 @@ export type ClassConfig = {
   rubric: string;
   instruction: string;
   outputOptions: EvaluationOutputOptions;
+  teacherId?: string;
 };
 
 function getKey() {

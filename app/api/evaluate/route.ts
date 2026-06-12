@@ -72,9 +72,9 @@ export async function POST(request: Request) {
     if (!classToken) {
       return NextResponse.json({ error: "선생님이 만든 학급 링크로 접속해 주세요." }, { status: 400 });
     }
-    if (!studentGrade || !studentClass || !studentName || !studentTeam) {
+    if (!studentGrade || !studentClass || !studentName) {
       return NextResponse.json(
-        { error: "학년, 반, 이름, 모둠을 모두 입력해 주세요." },
+        { error: "학년, 반, 이름을 모두 입력해 주세요." },
         { status: 400 },
       );
     }
@@ -109,7 +109,7 @@ ${classConfig.instruction}
 학년: ${studentGrade}
 반: ${studentClass}
 이름: ${studentName}
-모둠: ${studentTeam}
+모둠: ${studentTeam || "개인 제출"}
 
 PDF의 모든 페이지에서 글, 이미지, 표, 도표, 레이아웃 등 제출물에 포함된 요소를 살펴보세요.
 과목이나 결과물 형식을 미리 가정하지 말고, 위 과제 설명과 평가 루브릭을 기준으로 평가하세요.

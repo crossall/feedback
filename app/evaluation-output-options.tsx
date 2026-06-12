@@ -6,10 +6,16 @@ export default function EvaluationOutputOptionsField({
   value,
   onChange,
   allowGoogleDocsAppend,
+  googleAuth,
 }: {
   value: EvaluationOutputOptions;
   onChange: (value: EvaluationOutputOptions) => void;
   allowGoogleDocsAppend: boolean;
+  googleAuth?: {
+    configured: boolean;
+    connected: boolean;
+    connectHref: string;
+  };
 }) {
   function update(patch: Partial<EvaluationOutputOptions>) {
     onChange({ ...value, ...patch });
@@ -51,6 +57,26 @@ export default function EvaluationOutputOptionsField({
             <div className="docs-ownership-notice">
               <strong>교사 계정이 소유한 문서만 사용할 수 있어요.</strong>
               <p>교사가 자신의 Google 계정에서 문서를 만든 뒤 학생에게 편집 권한을 주세요. 학생이 직접 생성하고 소유한 문서에는 평가를 추가할 수 없습니다.</p>
+              {googleAuth?.connected ? (
+                <div className="google-auth-state connected">
+                  <span>Google 계정 연결됨</span>
+                  <a href={googleAuth.connectHref}>다른 계정으로 다시 연결</a>
+                </div>
+              ) : googleAuth?.configured ? (
+                <div className="google-auth-state">
+                  <span>이 기능을 사용하려면 교사의 Google 계정 인증이 필요합니다.</span>
+                  <a href={googleAuth.connectHref}>Google 계정 연결하기</a>
+                </div>
+              ) : (
+                <div className="google-auth-state">
+                  <span>현재 플랫폼의 Google OAuth 설정이 필요합니다.</span>
+                  <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noreferrer">
+                    Google Cloud 인증 설정 열기
+                  </a>
+                  <small>Google Docs API와 Google Drive API를 사용 설정하고 OAuth 웹 클라이언트를 만들어야 합니다.</small>
+                  <small>승인된 리디렉션 URI: https://feedforward.kr/api/google/oauth/callback</small>
+                </div>
+              )}
             </div>
           )}
         </div>

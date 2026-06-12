@@ -54,23 +54,25 @@ export async function fetchGoogleDocText(input: string) {
   return text;
 }
 
-export async function appendGoogleDocText(input: string, text: string) {
-  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
-  if (!clientEmail || !privateKey) {
+export async function appendGoogleDocText(
+  input: string,
+  text: string,
+  teacherId: string,
+  origin: string,
+) {
+  const auth = await getTeacherGoogleAuth(teacherId, origin);
+  const documentId = getGoogleDocId(input);
+  const drive = google.drive({ version: "v3", auth });
+  const file = await drive.files.get({
+    fileId: documentId,
+    fields: "id,ownedByMe",
+  });
+  if (!file.data.ownedByMe) {
     throw new Error(
-      "Google Docs 쓰기 연결이 아직 설정되지 않았습니다. 선생님께 화면 또는 보고서 제공 방식을 사용해 달라고 알려 주세요.",
+      "이 문서는 인증한 교사 계정의 소유 문서가 아닙니다. 교사 계정에서 만든 문서를 사용해 주세요.",
     );
   }
-
-  const { google } = await import("googleapis");
-  const auth = new google.auth.JWT({
-    email: clientEmail,
-    key: privateKey,
-    scopes: ["https://www.googleapis.com/auth/documents"],
-  });
   const docs = google.docs({ version: "v1", auth });
-  const documentId = getGoogleDocId(input);
   await docs.documents.batchUpdate({
     documentId,
     requestBody: {
@@ -83,3 +85,5 @@ export async function appendGoogleDocText(input: string, text: string) {
     },
   });
 }
+import { google } from "googleapis";
+import { getTeacherGoogleAuth } from "@/lib/server/google-oauth";

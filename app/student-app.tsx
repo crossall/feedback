@@ -70,8 +70,8 @@ export default function StudentApp({ classToken }: { classToken: string }) {
       setError("선생님이 보내주신 학급 링크로 접속해 주세요.");
       return;
     }
-    if (!studentGrade.trim() || !studentClass.trim() || !studentName.trim() || !studentTeam.trim() || !file) {
-      setError("학년, 반, 이름, 모둠과 PDF 파일을 모두 입력해 주세요.");
+    if (!studentGrade.trim() || !studentClass.trim() || !studentName.trim() || !file) {
+      setError("학년, 반, 이름과 PDF 파일을 모두 입력해 주세요.");
       return;
     }
 
@@ -137,7 +137,7 @@ export default function StudentApp({ classToken }: { classToken: string }) {
               <label className="field"><span>학년 <b>*</b></span><input value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} placeholder="예: 5학년" /></label>
               <label className="field"><span>반 <b>*</b></span><input value={studentClass} onChange={(e) => setStudentClass(e.target.value)} placeholder="예: 2반" /></label>
               <label className="field"><span>이름 <b>*</b></span><input value={studentName} onChange={(e) => setStudentName(e.target.value)} placeholder="이름을 입력하세요" /></label>
-              <label className="field"><span>모둠 <b>*</b></span><input value={studentTeam} onChange={(e) => setStudentTeam(e.target.value)} placeholder="예: 새싹 모둠" /></label>
+              <label className="field"><span>모둠 <small>(선택)</small></span><input value={studentTeam} onChange={(e) => setStudentTeam(e.target.value)} placeholder="모둠 활동일 때만 입력" /></label>
             </div>
             <label className={`drop-zone ${dragging ? "dragging" : ""} ${file ? "has-file" : ""}`} onDragOver={(e) => { e.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop}>
               <input type="file" accept="application/pdf" onChange={(e: ChangeEvent<HTMLInputElement>) => chooseFile(e.target.files?.[0])} />
@@ -172,7 +172,7 @@ export default function StudentApp({ classToken }: { classToken: string }) {
                 grade: studentGrade,
                 className: studentClass,
                 name: studentName,
-                team: studentTeam,
+                team: studentTeam || "개인 제출",
               }}
             />
             {result.outputOptions.showOnScreen && (

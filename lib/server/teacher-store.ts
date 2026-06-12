@@ -124,6 +124,7 @@ export async function saveTeacherEvaluation(input: {
       assignment: input.config.assignment.trim(),
       rubric: input.config.rubric.trim(),
       instruction: input.config.instruction.trim(),
+      teacherId: input.teacherId,
       outputOptions: {
         ...normalizeOutputOptions(input.config.outputOptions),
         appendToGoogleDoc: input.type === "docs"
