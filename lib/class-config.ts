@@ -78,11 +78,11 @@ export function decryptClassConfig(token: string): ClassConfig {
     ]).toString("utf8"),
   ) as ClassConfig;
 
-  const provider = normalizeProvider(config.provider);
+  const provider = providerFromModel(config.model, config.provider);
   const apiKeys = normalizeProviderApiKeys(config);
   const apiKey = apiKeys[provider];
 
-  if (!apiKey || !config.assignment || !config.rubric || !config.classTitle) {
+  if (!config.assignment || !config.rubric || !config.classTitle) {
     throw new Error("Incomplete class config.");
   }
   return {
@@ -98,6 +98,11 @@ export function normalizeProvider(value?: string): LlmProvider {
   return value === "anthropic" ? "anthropic" : "openai";
 }
 
+export function providerFromModel(model?: string, fallback?: string): LlmProvider {
+  if (model?.trim().toLowerCase().startsWith("claude-")) return "anthropic";
+  return normalizeProvider(fallback);
+}
+
 export function normalizeProviderApiKeys(
   config?: Partial<Pick<ClassConfig, "apiKey" | "apiKeys">>,
 ): ProviderApiKeys {
@@ -108,5 +113,5 @@ export function normalizeProviderApiKeys(
 }
 
 export function defaultModelForProvider(provider: LlmProvider) {
-  return provider === "anthropic" ? "claude-sonnet-4-5" : "gpt-5.5";
+  return provider === "anthropic" ? "claude-opus-4-8" : "gpt-5.5";
 }

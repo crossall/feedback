@@ -1,23 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import {
   deleteEvaluation,
   loadEvaluations,
+  loadTeacherApiKeyStatus,
+  saveTeacherApiKeySettings,
   type SavedEvaluation,
   type TeacherId,
 } from "@/lib/teacher-evaluations";
 
 export default function TeacherDashboard({ teacherId }: { teacherId: TeacherId }) {
   const [evaluations, setEvaluations] = useState<SavedEvaluation[]>([]);
+  const [apiKeys, setApiKeys] = useState({ openai: "", anthropic: "" });
+  const [hasApiKeys, setHasApiKeys] = useState({ openai: false, anthropic: false });
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
+  const [keyMessage, setKeyMessage] = useState("");
+  const [keySaving, setKeySaving] = useState(false);
 
   useEffect(() => {
     queueMicrotask(async () => {
       try {
-        setEvaluations(await loadEvaluations(teacherId));
+        const [loadedEvaluations, loadedApiKeys] = await Promise.all([
+          loadEvaluations(teacherId),
+          loadTeacherApiKeyStatus(teacherId),
+        ]);
+        setEvaluations(loadedEvaluations);
+        setHasApiKeys(loadedApiKeys);
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : "평가 보관함을 불러오지 못했습니다.");
       } finally {
@@ -33,6 +44,24 @@ export default function TeacherDashboard({ teacherId }: { teacherId: TeacherId }
       setEvaluations(await loadEvaluations(teacherId));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "평가를 삭제하지 못했습니다.");
+    }
+  }
+
+  async function saveApiKeys(event: FormEvent) {
+    event.preventDefault();
+    setKeySaving(true);
+    setError("");
+    setKeyMessage("");
+    try {
+      const saved = await saveTeacherApiKeySettings(teacherId, apiKeys);
+      setHasApiKeys(saved);
+      setApiKeys({ openai: "", anthropic: "" });
+      setKeyMessage("API 키 저장 상태를 업데이트했어요.");
+      window.setTimeout(() => setKeyMessage(""), 2800);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "API 키를 저장하지 못했습니다.");
+    } finally {
+      setKeySaving(false);
     }
   }
 
@@ -64,11 +93,54 @@ export default function TeacherDashboard({ teacherId }: { teacherId: TeacherId }
           </div>
         </div>
 
-        <section className="create-section">
+        <section className="api-key-section">
           <div className="section-heading">
             <span>01</span>
+            <div><h2>API 키 관리</h2><p>교사 번호에 사용할 평가 모델 키를 먼저 저장하세요.</p></div>
+          </div>
+          <form className="api-key-form" onSubmit={saveApiKeys}>
+            <label>
+              <span>OpenAI API 키</span>
+              <input
+                type="password"
+                value={apiKeys.openai}
+                onChange={(event) => setApiKeys({ ...apiKeys, openai: event.target.value })}
+                placeholder={hasApiKeys.openai ? "저장된 OpenAI 키 사용 중" : "sk-..."}
+                autoComplete="off"
+              />
+              <small>{hasApiKeys.openai ? "저장됨" : "미저장"}</small>
+            </label>
+            <label>
+              <span>Claude API 키</span>
+              <input
+                type="password"
+                value={apiKeys.anthropic}
+                onChange={(event) => setApiKeys({ ...apiKeys, anthropic: event.target.value })}
+                placeholder={hasApiKeys.anthropic ? "저장된 Claude 키 사용 중" : "sk-ant-..."}
+                autoComplete="off"
+              />
+              <small>{hasApiKeys.anthropic ? "저장됨" : "미저장"}</small>
+            </label>
+            <button type="submit" disabled={keySaving}>
+              {keySaving ? "저장 중..." : "API 키 저장"}
+            </button>
+          </form>
+          {keyMessage && <div className="storage-message">{keyMessage}</div>}
+        </section>
+
+        <section className="create-section">
+          <div className="section-heading">
+            <span>02</span>
             <div><h2>새로 만들기</h2><p>학생이 제출할 문서 형식을 선택하세요.</p></div>
           </div>
+          {(!hasApiKeys.openai || !hasApiKeys.anthropic) && (
+            <div className="key-warning">
+              <strong>API 키가 아직 모두 저장되지 않았어요.</strong>
+              <span>
+                GPT 모델은 OpenAI 키, Claude 모델은 Claude 키가 필요합니다.
+              </span>
+            </div>
+          )}
           <div className="creation-grid">
             <Link href={`/teacher?teacher=${teacherId}`}>
               <span className="type-icon">PDF</span>
@@ -85,7 +157,7 @@ export default function TeacherDashboard({ teacherId }: { teacherId: TeacherId }
 
         <section className="library-section">
           <div className="section-heading">
-            <span>02</span>
+            <span>03</span>
             <div><h2>저장한 평가</h2><p>평가 기준을 열어 수정하거나 학생 링크를 다시 만드세요.</p></div>
           </div>
           {error && <div className="error-message">{error}</div>}

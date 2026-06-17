@@ -67,3 +67,28 @@ export async function deleteEvaluation(teacherId: TeacherId, evaluationId: strin
   });
   await readJson<{ success: true }>(response);
 }
+
+export async function loadTeacherApiKeyStatus(teacherId: TeacherId) {
+  const response = await fetch(`/api/teachers/${teacherId}/api-keys`, {
+    cache: "no-store",
+  });
+  const data = await readJson<{
+    hasApiKeys: { openai: boolean; anthropic: boolean };
+  }>(response);
+  return data.hasApiKeys;
+}
+
+export async function saveTeacherApiKeySettings(
+  teacherId: TeacherId,
+  apiKeys: { openai?: string; anthropic?: string },
+) {
+  const response = await fetch(`/api/teachers/${teacherId}/api-keys`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(apiKeys),
+  });
+  const data = await readJson<{
+    hasApiKeys: { openai: boolean; anthropic: boolean };
+  }>(response);
+  return data.hasApiKeys;
+}

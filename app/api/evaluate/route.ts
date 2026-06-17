@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { decryptClassConfig } from "@/lib/class-config";
 import { EvaluationRequestError, requestEvaluation } from "@/lib/llm-evaluation";
+import { getTeacherApiKeys } from "@/lib/server/teacher-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -40,6 +41,14 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    const teacherApiKeys = await getTeacherApiKeys(classConfig.teacherId ?? "");
+    classConfig = {
+      ...classConfig,
+      apiKeys: {
+        openai: teacherApiKeys.openai || classConfig.apiKeys?.openai || classConfig.apiKey,
+        anthropic: teacherApiKeys.anthropic || classConfig.apiKeys?.anthropic || "",
+      },
+    };
 
     const bytes = Buffer.from(await file.arrayBuffer());
     const prompt = `당신은 학생의 PDF 학습 결과물을 평가하는 공정하고 따뜻한 교사입니다.

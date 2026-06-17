@@ -6,8 +6,8 @@ import {
   defaultOutputOptions,
   defaultModelForProvider,
   normalizeOutputOptions,
-  normalizeProvider,
   normalizeProviderApiKeys,
+  providerFromModel,
   type ClassConfig,
   type ProviderApiKeys,
 } from "@/lib/class-config";
@@ -27,6 +27,11 @@ type StoredEvaluation = {
   encryptedApiKeys?: Partial<ProviderApiKeys>;
   createdAt: string;
   updatedAt: string;
+};
+
+type StoredTeacherApiKeys = {
+  encryptedApiKeys?: Partial<ProviderApiKeys>;
+  updatedAt?: string;
 };
 
 function getEncryptionKey() {
@@ -72,6 +77,10 @@ function teacherPath(teacherId: TeacherId) {
   return `teachers/${teacherId}.json`;
 }
 
+function teacherApiKeysPath(teacherId: TeacherId) {
+  return `teachers/${teacherId}-api-keys.json`;
+}
+
 async function readStoredEvaluations(teacherId: TeacherId): Promise<StoredEvaluation[]> {
   const result = await get(teacherPath(teacherId), {
     access: "private",
@@ -94,6 +103,39 @@ async function writeStoredEvaluations(
   });
 }
 
+async function readStoredTeacherApiKeys(teacherId: TeacherId): Promise<StoredTeacherApiKeys> {
+  const result = await get(teacherApiKeysPath(teacherId), {
+    access: "private",
+    useCache: false,
+  });
+  if (!result) return {};
+  const body = await new Response(result.stream).json() as StoredTeacherApiKeys;
+  return body && typeof body === "object" ? body : {};
+}
+
+async function writeStoredTeacherApiKeys(
+  teacherId: TeacherId,
+  apiKeys: StoredTeacherApiKeys,
+) {
+  await put(teacherApiKeysPath(teacherId), JSON.stringify(apiKeys), {
+    access: "private",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    contentType: "application/json",
+  });
+}
+
+function decryptTeacherApiKeys(stored: StoredTeacherApiKeys): ProviderApiKeys {
+  return {
+    openai: stored.encryptedApiKeys?.openai
+      ? decryptApiKey(stored.encryptedApiKeys.openai)
+      : "",
+    anthropic: stored.encryptedApiKeys?.anthropic
+      ? decryptApiKey(stored.encryptedApiKeys.anthropic)
+      : "",
+  };
+}
+
 function toPublicEvaluation(evaluation: StoredEvaluation): SavedEvaluation {
   return {
     id: evaluation.id,
@@ -103,7 +145,7 @@ function toPublicEvaluation(evaluation: StoredEvaluation): SavedEvaluation {
       ...evaluation.config,
       apiKey: "",
       apiKeys: { openai: "", anthropic: "" },
-      provider: normalizeProvider(evaluation.config.provider),
+      provider: providerFromModel(evaluation.config.model, evaluation.config.provider),
       outputOptions: {
         ...defaultOutputOptions,
         ...evaluation.config.outputOptions,
@@ -137,7 +179,7 @@ export async function saveTeacherEvaluation(input: {
     ? evaluations.find(({ id }) => id === input.evaluationId)
     : undefined;
   const now = new Date().toISOString();
-  const provider = normalizeProvider(input.config.provider);
+  const provider = providerFromModel(input.config.model, input.config.provider);
   const apiKeys = normalizeProviderApiKeys(input.config);
   const existingApiKeys = existing ? decryptProviderApiKeys(existing) : { openai: "", anthropic: "" };
   const savedApiKeys: ProviderApiKeys = {
@@ -194,4 +236,49 @@ export async function getStoredApiKeys(teacherIdValue: string, evaluationId: str
   const evaluations = await readStoredEvaluations(teacherIdValue);
   const evaluation = evaluations.find(({ id }) => id === evaluationId);
   return evaluation ? decryptProviderApiKeys(evaluation) : { openai: "", anthropic: "" };
+}
+
+export async function getTeacherApiKeys(teacherIdValue: string) {
+  if (!isTeacherId(teacherIdValue)) {
+    return { openai: "", anthropic: "" };
+  }
+  return decryptTeacherApiKeys(await readStoredTeacherApiKeys(teacherIdValue));
+}
+
+export async function getTeacherApiKeyStatus(teacherIdValue: string) {
+  if (!isTeacherId(teacherIdValue)) {
+    return { openai: false, anthropic: false };
+  }
+  const stored = await readStoredTeacherApiKeys(teacherIdValue);
+  return {
+    openai: Boolean(stored.encryptedApiKeys?.openai),
+    anthropic: Boolean(stored.encryptedApiKeys?.anthropic),
+  };
+}
+
+export async function saveTeacherApiKeys(
+  teacherIdValue: string,
+  input: Partial<ProviderApiKeys>,
+) {
+  if (!isTeacherId(teacherIdValue)) {
+    throw new Error("등록되지 않은 교사 ID입니다.");
+  }
+  const existing = await readStoredTeacherApiKeys(teacherIdValue);
+  const existingKeys = decryptTeacherApiKeys(existing);
+  const apiKeys: ProviderApiKeys = {
+    openai: input.openai?.trim() || existingKeys.openai,
+    anthropic: input.anthropic?.trim() || existingKeys.anthropic,
+  };
+  const encryptedApiKeys: Partial<ProviderApiKeys> = {
+    openai: apiKeys.openai ? encryptApiKey(apiKeys.openai) : "",
+    anthropic: apiKeys.anthropic ? encryptApiKey(apiKeys.anthropic) : "",
+  };
+  await writeStoredTeacherApiKeys(teacherIdValue, {
+    encryptedApiKeys,
+    updatedAt: new Date().toISOString(),
+  });
+  return {
+    openai: Boolean(encryptedApiKeys.openai),
+    anthropic: Boolean(encryptedApiKeys.anthropic),
+  };
 }

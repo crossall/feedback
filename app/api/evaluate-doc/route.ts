@@ -3,6 +3,7 @@ import { decryptClassConfig } from "@/lib/class-config";
 import { appendGoogleDocText, fetchGoogleDocText } from "@/lib/google-docs";
 import { formatEvaluationText } from "@/lib/evaluation-text";
 import { EvaluationRequestError, requestEvaluation } from "@/lib/llm-evaluation";
+import { getTeacherApiKeys } from "@/lib/server/teacher-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -39,6 +40,14 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+    const teacherApiKeys = await getTeacherApiKeys(classConfig.teacherId ?? "");
+    classConfig = {
+      ...classConfig,
+      apiKeys: {
+        openai: teacherApiKeys.openai || classConfig.apiKeys?.openai || classConfig.apiKey,
+        anthropic: teacherApiKeys.anthropic || classConfig.apiKeys?.anthropic || "",
+      },
+    };
 
     let documentText;
     try {

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { defaultModelForProvider, type LlmProvider } from "@/lib/class-config";
+import { providerFromModel } from "@/lib/class-config";
 import { defaultGoogleDocsClassConfig } from "@/lib/google-docs-defaults";
 import EvaluationOutputOptionsField from "@/app/evaluation-output-options";
 import {
   isTeacherId,
   loadEvaluation,
+  loadTeacherApiKeyStatus,
   saveEvaluation,
   type TeacherId,
 } from "@/lib/teacher-evaluations";
@@ -21,11 +22,7 @@ export default function GoogleDocsTeacherPage() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [storageMessage, setStorageMessage] = useState("");
-  const [hasStoredApiKey, setHasStoredApiKey] = useState(false);
-  const [hasStoredApiKeys, setHasStoredApiKeys] = useState({
-    openai: false,
-    anthropic: false,
-  });
+  const [hasApiKeys, setHasApiKeys] = useState({ openai: false, anthropic: false });
   const [googleAuth, setGoogleAuth] = useState({
     configured: false,
     connected: false,
@@ -38,6 +35,13 @@ export default function GoogleDocsTeacherPage() {
 
     if (isTeacherId(requestedTeacherId)) {
       queueMicrotask(() => setTeacherId(requestedTeacherId));
+      queueMicrotask(async () => {
+        try {
+          setHasApiKeys(await loadTeacherApiKeyStatus(requestedTeacherId));
+        } catch {
+          // Link creation will still validate the key on the server.
+        }
+      });
       queueMicrotask(async () => {
         try {
           const response = await fetch(
@@ -62,11 +66,6 @@ export default function GoogleDocsTeacherPage() {
             if (saved?.type !== "docs") return;
             setEvaluationId(saved.id);
             setSettings(saved.config);
-            setHasStoredApiKey(saved.hasApiKey);
-            setHasStoredApiKeys(saved.hasApiKeys ?? {
-              openai: saved.hasApiKey,
-              anthropic: false,
-            });
             setStorageMessage("서버 보관함에서 저장된 Google Docs 평가를 불러왔어요.");
           } catch (caught) {
             setError(caught instanceof Error ? caught.message : "평가를 불러오지 못했습니다.");
@@ -88,11 +87,6 @@ export default function GoogleDocsTeacherPage() {
     }
     const saved = await saveEvaluation(teacherId, "docs", settings, evaluationId || undefined);
     setEvaluationId(saved.id);
-    setHasStoredApiKey(saved.hasApiKey);
-    setHasStoredApiKeys(saved.hasApiKeys ?? {
-      openai: saved.hasApiKey,
-      anthropic: false,
-    });
     window.history.replaceState(
       null,
       "",
@@ -171,7 +165,7 @@ export default function GoogleDocsTeacherPage() {
           <p>과제와 루브릭을 입력해 학급 전용 링크를 만드세요. 학생들은 받은 링크에서 Google Docs 글을 제출할 수 있습니다.</p>
           <div className="security-note">
             <strong>{teacherId ? `${teacherId} 선생님의 보관함에 저장돼요` : "다음에도 바로 이어서 사용할 수 있어요"}</strong>
-            <p>평가와 API 키는 암호화되어 서버에 저장됩니다. 다른 기기에서도 같은 교사 ID로 이어서 사용할 수 있어요.</p>
+            <p>API 키는 교사 보관함에서 별도로 관리합니다. 여기서는 평가 기준과 모델만 저장합니다.</p>
           </div>
         </div>
 
@@ -186,68 +180,21 @@ export default function GoogleDocsTeacherPage() {
             <input value={settings.classTitle} onChange={(e) => setSettings({ ...settings, classTitle: e.target.value })} />
           </label>
           <label className="field full">
-            <span>평가 모델 제공자 <b>*</b></span>
-            <select
-              value={settings.provider ?? "openai"}
-              onChange={(e) => {
-                const provider = e.target.value as LlmProvider;
-                setSettings({
-                  ...settings,
-                  provider,
-                  model: defaultModelForProvider(provider),
-                });
-              }}
-            >
-              <option value="openai">OpenAI GPT</option>
-              <option value="anthropic">Anthropic Claude</option>
-            </select>
-          </label>
-          <label className="field full">
-            <span>OpenAI API 키</span>
-            <input
-              type="password"
-              value={settings.apiKeys?.openai ?? settings.apiKey}
-              onChange={(e) => setSettings({
-                ...settings,
-                apiKey: e.target.value,
-                apiKeys: { ...settings.apiKeys, openai: e.target.value },
-              })}
-              placeholder={hasStoredApiKeys.openai || hasStoredApiKey ? "서버에 저장된 OpenAI 키 사용 중" : "sk-..."}
-              autoComplete="off"
-            />
-            <small>{hasStoredApiKeys.openai || hasStoredApiKey ? "새 키를 입력하지 않으면 서버에 저장된 기존 OpenAI 키를 계속 사용합니다." : "API 키는 서버에서 암호화해 저장하며 브라우저로 다시 전송하지 않습니다."}</small>
-          </label>
-          <label className="field full">
-            <span>Claude API 키</span>
-            <input
-              type="password"
-              value={settings.apiKeys?.anthropic ?? ""}
-              onChange={(e) => setSettings({
-                ...settings,
-                apiKeys: { ...settings.apiKeys, anthropic: e.target.value },
-              })}
-              placeholder={hasStoredApiKeys.anthropic ? "서버에 저장된 Claude 키 사용 중" : "sk-ant-..."}
-              autoComplete="off"
-            />
-            <small>{hasStoredApiKeys.anthropic ? "새 키를 입력하지 않으면 서버에 저장된 기존 Claude 키를 계속 사용합니다." : "Claude를 선택할 때 사용할 Anthropic API 키입니다."}</small>
-          </label>
-          <label className="field full">
             <span>평가 모델</span>
             <select value={settings.model} onChange={(e) => setSettings({ ...settings, model: e.target.value })}>
-              {(settings.provider ?? "openai") === "anthropic" ? (
-                <>
-                  <option value="claude-sonnet-4-5">Claude Sonnet 4.5 · 높은 평가 품질</option>
-                  <option value="claude-haiku-4-5">Claude Haiku 4.5 · 빠른 평가</option>
-                  <option value="claude-opus-4-1">Claude Opus 4.1 · 깊은 평가</option>
-                </>
-              ) : (
-                <>
-                  <option value="gpt-5.5">GPT-5.5 · 높은 평가 품질</option>
-                  <option value="gpt-5.4-mini">GPT-5.4 mini · 비용 절약</option>
-                  <option value="gpt-4o">GPT-4o · 호환 모델</option>
-                </>
-              )}
+              <option value="gpt-5.5">GPT-5.5 · 높은 평가 품질</option>
+              <option value="gpt-5.4-mini">GPT-5.4 mini · 비용 절약</option>
+              <option value="gpt-4o">GPT-4o · 호환 모델</option>
+              <option value="claude-opus-4-8">Claude Opus 4.8 · 깊은 평가</option>
+              <option value="claude-opus-4-7">Claude Opus 4.7 · 깊은 평가</option>
+              <option value="claude-sonnet-4-6">Claude Sonnet 4.6 · 균형형</option>
+              <option value="claude-haiku-4-5">Claude Haiku 4.5 · 빠른 평가</option>
             </select>
+            {!hasApiKeys[providerFromModel(settings.model)] && (
+              <small>
+                이 모델을 사용하려면 먼저 내 평가 보관함에서 {providerFromModel(settings.model) === "anthropic" ? "Claude" : "OpenAI"} API 키를 저장해 주세요.
+              </small>
+            )}
           </label>
           <label className="field full">
             <span>과제 설명 <b>*</b></span>
@@ -290,7 +237,7 @@ export default function GoogleDocsTeacherPage() {
             <button type="button" className="danger-text-button" onClick={resetSettings}>입력 초기화</button>
           </div>
           <div className="settings-actions">
-            <button type="button" className="text-button" onClick={() => setSettings({ ...defaultGoogleDocsClassConfig, apiKey: settings.apiKey, apiKeys: settings.apiKeys })}>기본 루브릭으로 되돌리기</button>
+            <button type="button" className="text-button" onClick={() => setSettings(defaultGoogleDocsClassConfig)}>기본 루브릭으로 되돌리기</button>
             <button className="primary-button save-button" disabled={loading}>{loading ? "암호화 링크 만드는 중..." : "저장하고 학생용 링크 만들기"}</button>
           </div>
 
@@ -300,7 +247,7 @@ export default function GoogleDocsTeacherPage() {
               <strong>이 주소를 학생들에게 전달해 주세요.</strong>
               <div><input readOnly value={classUrl} /><button type="button" onClick={copyLink}>{copied ? "복사됨" : "링크 복사"}</button></div>
               <a href={classUrl} target="_blank" rel="noreferrer">학생 화면 미리 보기 →</a>
-              <p>API 키나 루브릭을 바꾸면 새 링크를 만들어 다시 전달해 주세요.</p>
+              <p>루브릭이나 모델을 바꾸면 새 링크를 만들어 다시 전달해 주세요.</p>
             </div>
           )}
         </form>

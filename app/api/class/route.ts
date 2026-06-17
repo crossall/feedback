@@ -3,11 +3,10 @@ import {
   defaultModelForProvider,
   encryptClassConfig,
   normalizeOutputOptions,
-  normalizeProvider,
-  normalizeProviderApiKeys,
+  providerFromModel,
   type ClassConfig,
 } from "@/lib/class-config";
-import { getStoredApiKeys } from "@/lib/server/teacher-store";
+import { getTeacherApiKeys } from "@/lib/server/teacher-store";
 
 export const runtime = "nodejs";
 
@@ -17,20 +16,16 @@ export async function POST(request: Request) {
       teacherId?: string;
       evaluationId?: string;
     };
-    const storedApiKeys = body.teacherId && body.evaluationId
-      ? await getStoredApiKeys(body.teacherId, body.evaluationId)
+    const model = body.model?.trim() || defaultModelForProvider("openai");
+    const provider = providerFromModel(model, body.provider);
+    const apiKeys = body.teacherId
+      ? await getTeacherApiKeys(body.teacherId)
       : { openai: "", anthropic: "" };
-    const provider = normalizeProvider(body.provider);
-    const submittedApiKeys = normalizeProviderApiKeys(body);
-    const apiKeys = {
-      openai: submittedApiKeys.openai || storedApiKeys.openai,
-      anthropic: submittedApiKeys.anthropic || storedApiKeys.anthropic,
-    };
     const config: ClassConfig = {
-      apiKey: apiKeys[provider],
-      apiKeys,
+      apiKey: "",
+      apiKeys: {},
       provider,
-      model: body.model?.trim() || defaultModelForProvider(provider),
+      model,
       classTitle: body.classTitle?.trim() ?? "",
       assignment: body.assignment?.trim() ?? "",
       rubric: body.rubric?.trim() ?? "",
@@ -39,9 +34,22 @@ export async function POST(request: Request) {
       teacherId: body.teacherId?.trim() || undefined,
     };
 
-    if (!config.apiKey || !config.classTitle || !config.assignment || !config.rubric) {
+    if (!apiKeys[provider] || !config.classTitle || !config.assignment || !config.rubric) {
+      if (!config.classTitle || !config.assignment || !config.rubric) {
+        return NextResponse.json(
+          { error: "학급 링크 이름, 과제 설명, 루브릭을 모두 입력해 주세요." },
+          { status: 400 },
+        );
+      }
+      if (!body.teacherId) {
+        return NextResponse.json(
+          { error: "교사 ID로 입장한 뒤 학생용 링크를 만들어 주세요." },
+          { status: 400 },
+        );
+      }
+      const providerLabel = provider === "anthropic" ? "Claude" : "OpenAI";
       return NextResponse.json(
-        { error: "선택한 평가 모델의 API 키, 학급 링크 이름, 과제 설명, 루브릭을 모두 입력해 주세요." },
+        { error: `${providerLabel} API 키가 없습니다. 먼저 내 평가 보관함에서 API 키를 저장해 주세요.` },
         { status: 400 },
       );
     }

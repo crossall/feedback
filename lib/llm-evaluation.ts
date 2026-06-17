@@ -1,5 +1,5 @@
 import type { ClassConfig, LlmProvider } from "./class-config";
-import { normalizeProvider, normalizeProviderApiKeys } from "./class-config";
+import { normalizeProviderApiKeys, providerFromModel } from "./class-config";
 import type { Evaluation } from "./evaluation-result";
 
 export const evaluationSchema = {
@@ -86,7 +86,7 @@ function providerName(provider: LlmProvider) {
 }
 
 export function getEvaluationProvider(config: ClassConfig) {
-  const provider = normalizeProvider(config.provider);
+  const provider = providerFromModel(config.model, config.provider);
   const apiKeys = normalizeProviderApiKeys(config);
   return {
     provider,
