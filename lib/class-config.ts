@@ -8,6 +8,13 @@ export type EvaluationOutputOptions = {
   reportFormat: ReportFormat;
 };
 
+export type LlmProvider = "openai" | "anthropic";
+
+export type ProviderApiKeys = {
+  openai: string;
+  anthropic: string;
+};
+
 export const defaultOutputOptions: EvaluationOutputOptions = {
   showOnScreen: true,
   appendToGoogleDoc: false,
@@ -29,6 +36,8 @@ export function normalizeOutputOptions(
 
 export type ClassConfig = {
   apiKey: string;
+  apiKeys?: Partial<ProviderApiKeys>;
+  provider?: LlmProvider;
   model: string;
   classTitle: string;
   assignment: string;
@@ -69,11 +78,35 @@ export function decryptClassConfig(token: string): ClassConfig {
     ]).toString("utf8"),
   ) as ClassConfig;
 
-  if (!config.apiKey || !config.assignment || !config.rubric || !config.classTitle) {
+  const provider = normalizeProvider(config.provider);
+  const apiKeys = normalizeProviderApiKeys(config);
+  const apiKey = apiKeys[provider];
+
+  if (!apiKey || !config.assignment || !config.rubric || !config.classTitle) {
     throw new Error("Incomplete class config.");
   }
   return {
     ...config,
+    apiKey,
+    apiKeys,
+    provider,
     outputOptions: normalizeOutputOptions(config.outputOptions),
   };
+}
+
+export function normalizeProvider(value?: string): LlmProvider {
+  return value === "anthropic" ? "anthropic" : "openai";
+}
+
+export function normalizeProviderApiKeys(
+  config?: Partial<Pick<ClassConfig, "apiKey" | "apiKeys">>,
+): ProviderApiKeys {
+  return {
+    openai: config?.apiKeys?.openai?.trim() || config?.apiKey?.trim() || "",
+    anthropic: config?.apiKeys?.anthropic?.trim() || "",
+  };
+}
+
+export function defaultModelForProvider(provider: LlmProvider) {
+  return provider === "anthropic" ? "claude-sonnet-4-5" : "gpt-5.5";
 }

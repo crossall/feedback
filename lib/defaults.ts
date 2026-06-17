@@ -2,6 +2,8 @@ import { defaultOutputOptions, type ClassConfig } from "./class-config";
 
 export const defaultClassConfig: ClassConfig = {
   apiKey: "",
+  apiKeys: { openai: "", anthropic: "" },
+  provider: "openai",
   model: "gpt-5.5",
   classTitle: "프로젝트 결과물 평가",
   assignment:

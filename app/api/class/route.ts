@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import {
+  defaultModelForProvider,
   encryptClassConfig,
   normalizeOutputOptions,
+  normalizeProvider,
+  normalizeProviderApiKeys,
   type ClassConfig,
 } from "@/lib/class-config";
-import { getStoredApiKey } from "@/lib/server/teacher-store";
+import { getStoredApiKeys } from "@/lib/server/teacher-store";
 
 export const runtime = "nodejs";
 
@@ -14,12 +17,20 @@ export async function POST(request: Request) {
       teacherId?: string;
       evaluationId?: string;
     };
-    const storedApiKey = body.teacherId && body.evaluationId
-      ? await getStoredApiKey(body.teacherId, body.evaluationId)
-      : "";
+    const storedApiKeys = body.teacherId && body.evaluationId
+      ? await getStoredApiKeys(body.teacherId, body.evaluationId)
+      : { openai: "", anthropic: "" };
+    const provider = normalizeProvider(body.provider);
+    const submittedApiKeys = normalizeProviderApiKeys(body);
+    const apiKeys = {
+      openai: submittedApiKeys.openai || storedApiKeys.openai,
+      anthropic: submittedApiKeys.anthropic || storedApiKeys.anthropic,
+    };
     const config: ClassConfig = {
-      apiKey: body.apiKey?.trim() || storedApiKey,
-      model: body.model?.trim() || "gpt-5.5",
+      apiKey: apiKeys[provider],
+      apiKeys,
+      provider,
+      model: body.model?.trim() || defaultModelForProvider(provider),
       classTitle: body.classTitle?.trim() ?? "",
       assignment: body.assignment?.trim() ?? "",
       rubric: body.rubric?.trim() ?? "",
@@ -30,7 +41,7 @@ export async function POST(request: Request) {
 
     if (!config.apiKey || !config.classTitle || !config.assignment || !config.rubric) {
       return NextResponse.json(
-        { error: "API 키, 학급 링크 이름, 과제 설명, 루브릭을 모두 입력해 주세요." },
+        { error: "선택한 평가 모델의 API 키, 학급 링크 이름, 과제 설명, 루브릭을 모두 입력해 주세요." },
         { status: 400 },
       );
     }

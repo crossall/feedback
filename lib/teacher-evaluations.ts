@@ -11,6 +11,10 @@ export type SavedEvaluation = {
   type: EvaluationType;
   config: ClassConfig;
   hasApiKey: boolean;
+  hasApiKeys?: {
+    openai: boolean;
+    anthropic: boolean;
+  };
   createdAt: string;
   updatedAt: string;
 };

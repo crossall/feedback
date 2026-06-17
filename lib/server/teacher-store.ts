@@ -4,8 +4,12 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypt
 import { get, put } from "@vercel/blob";
 import {
   defaultOutputOptions,
+  defaultModelForProvider,
   normalizeOutputOptions,
+  normalizeProvider,
+  normalizeProviderApiKeys,
   type ClassConfig,
+  type ProviderApiKeys,
 } from "@/lib/class-config";
 import {
   isTeacherId,
@@ -18,8 +22,9 @@ type StoredEvaluation = {
   id: string;
   teacherId: TeacherId;
   type: EvaluationType;
-  config: Omit<ClassConfig, "apiKey">;
-  encryptedApiKey: string;
+  config: Omit<ClassConfig, "apiKey" | "apiKeys">;
+  encryptedApiKey?: string;
+  encryptedApiKeys?: Partial<ProviderApiKeys>;
   createdAt: string;
   updatedAt: string;
 };
@@ -48,6 +53,19 @@ function decryptApiKey(payload: string) {
     decipher.update(value.subarray(28)),
     decipher.final(),
   ]).toString("utf8");
+}
+
+function decryptProviderApiKeys(evaluation: StoredEvaluation): ProviderApiKeys {
+  return {
+    openai: evaluation.encryptedApiKeys?.openai
+      ? decryptApiKey(evaluation.encryptedApiKeys.openai)
+      : evaluation.encryptedApiKey
+        ? decryptApiKey(evaluation.encryptedApiKey)
+        : "",
+    anthropic: evaluation.encryptedApiKeys?.anthropic
+      ? decryptApiKey(evaluation.encryptedApiKeys.anthropic)
+      : "",
+  };
 }
 
 function teacherPath(teacherId: TeacherId) {
@@ -84,12 +102,18 @@ function toPublicEvaluation(evaluation: StoredEvaluation): SavedEvaluation {
     config: {
       ...evaluation.config,
       apiKey: "",
+      apiKeys: { openai: "", anthropic: "" },
+      provider: normalizeProvider(evaluation.config.provider),
       outputOptions: {
         ...defaultOutputOptions,
         ...evaluation.config.outputOptions,
       },
     },
-    hasApiKey: Boolean(evaluation.encryptedApiKey),
+    hasApiKey: Boolean(evaluation.encryptedApiKey || evaluation.encryptedApiKeys?.openai),
+    hasApiKeys: {
+      openai: Boolean(evaluation.encryptedApiKey || evaluation.encryptedApiKeys?.openai),
+      anthropic: Boolean(evaluation.encryptedApiKeys?.anthropic),
+    },
     createdAt: evaluation.createdAt,
     updatedAt: evaluation.updatedAt,
   };
@@ -113,13 +137,20 @@ export async function saveTeacherEvaluation(input: {
     ? evaluations.find(({ id }) => id === input.evaluationId)
     : undefined;
   const now = new Date().toISOString();
-  const apiKey = input.config.apiKey.trim();
+  const provider = normalizeProvider(input.config.provider);
+  const apiKeys = normalizeProviderApiKeys(input.config);
+  const existingApiKeys = existing ? decryptProviderApiKeys(existing) : { openai: "", anthropic: "" };
+  const savedApiKeys: ProviderApiKeys = {
+    openai: apiKeys.openai || existingApiKeys.openai,
+    anthropic: apiKeys.anthropic || existingApiKeys.anthropic,
+  };
   const saved: StoredEvaluation = {
     id: existing?.id ?? crypto.randomUUID(),
     teacherId: input.teacherId,
     type: input.type,
     config: {
-      model: input.config.model.trim() || "gpt-5.5",
+      provider,
+      model: input.config.model.trim() || defaultModelForProvider(provider),
       classTitle: input.config.classTitle.trim(),
       assignment: input.config.assignment.trim(),
       rubric: input.config.rubric.trim(),
@@ -131,9 +162,10 @@ export async function saveTeacherEvaluation(input: {
           && input.config.outputOptions?.appendToGoogleDoc === true,
       },
     },
-    encryptedApiKey: apiKey
-      ? encryptApiKey(apiKey)
-      : existing?.encryptedApiKey ?? "",
+    encryptedApiKeys: {
+      openai: savedApiKeys.openai ? encryptApiKey(savedApiKeys.openai) : "",
+      anthropic: savedApiKeys.anthropic ? encryptApiKey(savedApiKeys.anthropic) : "",
+    },
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
@@ -155,9 +187,11 @@ export async function deleteTeacherEvaluation(
   );
 }
 
-export async function getStoredApiKey(teacherIdValue: string, evaluationId: string) {
-  if (!isTeacherId(teacherIdValue) || !evaluationId) return "";
+export async function getStoredApiKeys(teacherIdValue: string, evaluationId: string) {
+  if (!isTeacherId(teacherIdValue) || !evaluationId) {
+    return { openai: "", anthropic: "" };
+  }
   const evaluations = await readStoredEvaluations(teacherIdValue);
   const evaluation = evaluations.find(({ id }) => id === evaluationId);
-  return evaluation ? decryptApiKey(evaluation.encryptedApiKey) : "";
+  return evaluation ? decryptProviderApiKeys(evaluation) : { openai: "", anthropic: "" };
 }

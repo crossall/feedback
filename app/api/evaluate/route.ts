@@ -1,60 +1,9 @@
 import { NextResponse } from "next/server";
 import { decryptClassConfig } from "@/lib/class-config";
-import type { Evaluation } from "@/lib/evaluation-result";
+import { EvaluationRequestError, requestEvaluation } from "@/lib/llm-evaluation";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
-
-const evaluationSchema = {
-  type: "object",
-  properties: {
-    title: { type: "string" },
-    totalScore: { type: "number" },
-    maxScore: { type: "number" },
-    summary: { type: "string" },
-    criteria: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          name: { type: "string" },
-          score: { type: "number" },
-          maxScore: { type: "number" },
-          feedback: { type: "string" },
-        },
-        required: ["name", "score", "maxScore", "feedback"],
-        additionalProperties: false,
-      },
-    },
-    strengths: { type: "array", items: { type: "string" } },
-    improvements: { type: "array", items: { type: "string" } },
-    nextStep: { type: "string" },
-  },
-  required: [
-    "title",
-    "totalScore",
-    "maxScore",
-    "summary",
-    "criteria",
-    "strengths",
-    "improvements",
-    "nextStep",
-  ],
-  additionalProperties: false,
-};
-
-function getOutputText(response: {
-  output_text?: string;
-  output?: Array<{ content?: Array<{ type?: string; text?: string }> }>;
-}) {
-  if (response.output_text) return response.output_text;
-  for (const item of response.output ?? []) {
-    for (const content of item.content ?? []) {
-      if (content.type === "output_text" && content.text) return content.text;
-    }
-  }
-  return "";
-}
 
 export async function POST(request: Request) {
   try {
@@ -93,7 +42,6 @@ export async function POST(request: Request) {
     }
 
     const bytes = Buffer.from(await file.arrayBuffer());
-    const fileData = `data:application/pdf;base64,${bytes.toString("base64")}`;
     const prompt = `당신은 학생의 PDF 학습 결과물을 평가하는 공정하고 따뜻한 교사입니다.
 
 [과제]
@@ -113,56 +61,28 @@ ${classConfig.instruction}
 
 PDF의 모든 페이지에서 글, 이미지, 표, 도표, 레이아웃 등 제출물에 포함된 요소를 살펴보세요.
 과목이나 결과물 형식을 미리 가정하지 말고, 위 과제 설명과 평가 루브릭을 기준으로 평가하세요.
-루브릭의 항목명과 배점을 그대로 최대한 유지해 항목별로 평가하세요.
+루브릭의 항목명과 배점을 그대로 최대한 유지해 항목별로 평가하세요. 전체 만점은 루브릭이나 추가 지시가 정한 배점 합계를 따르고, 별도 지시가 없을 때만 루브릭에 적힌 배점 합계를 사용하세요.
 총점은 각 항목 점수의 합과 일치해야 합니다.
 강점과 개선점은 각각 2~4개로, PDF에서 확인한 구체적인 근거를 들어 작성하세요.
 학생이 바로 실행할 수 있는 가장 중요한 다음 수정 행동을 마지막에 한 문장으로 제안하세요.`;
 
-    const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${classConfig.apiKey}`,
-        "Content-Type": "application/json",
+    const evaluation = await requestEvaluation({
+      config: classConfig,
+      prompt,
+      pdf: {
+        filename: file.name,
+        base64: bytes.toString("base64"),
       },
-      body: JSON.stringify({
-        model: classConfig.model,
-        input: [
-          {
-            role: "user",
-            content: [
-              { type: "input_file", filename: file.name, file_data: fileData },
-              { type: "input_text", text: prompt },
-            ],
-          },
-        ],
-        text: {
-          format: {
-            type: "json_schema",
-            name: "student_pdf_evaluation",
-            strict: true,
-            schema: evaluationSchema,
-          },
-        },
-      }),
+      schemaName: "student_pdf_evaluation",
     });
-
-    const responseBody = await openAIResponse.json();
-    if (!openAIResponse.ok) {
-      const message = responseBody?.error?.message ?? "OpenAI 평가 요청에 실패했습니다.";
-      return NextResponse.json({ error: message }, { status: openAIResponse.status });
-    }
-
-    const outputText = getOutputText(responseBody);
-    if (!outputText) {
-      return NextResponse.json({ error: "모델이 평가 결과를 반환하지 않았습니다. 다시 시도해 주세요." }, { status: 502 });
-    }
-
-    const evaluation = JSON.parse(outputText) as Evaluation;
     return NextResponse.json({
       ...evaluation,
       outputOptions: classConfig.outputOptions,
     });
   } catch (error) {
+    if (error instanceof EvaluationRequestError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error("Evaluation failed:", error);
     return NextResponse.json(
       { error: "평가 결과를 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." },

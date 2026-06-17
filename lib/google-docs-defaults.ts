@@ -2,6 +2,8 @@ import { defaultOutputOptions, type ClassConfig } from "./class-config";
 
 export const defaultGoogleDocsClassConfig: ClassConfig = {
   apiKey: "",
+  apiKeys: { openai: "", anthropic: "" },
+  provider: "openai",
   model: "gpt-5.5",
   classTitle: "Google Docs 글쓰기 과제",
   assignment:

@@ -22,7 +22,18 @@ function Icon({
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>{paths[name]}</svg>;
 }
 
-export default function GoogleDocsStudentApp({ classToken }: { classToken: string }) {
+type StudentClassInfo = {
+  classTitle: string;
+  assignment: string;
+};
+
+export default function GoogleDocsStudentApp({
+  classToken,
+  classInfo,
+}: {
+  classToken: string;
+  classInfo?: StudentClassInfo;
+}) {
   const [studentGrade, setStudentGrade] = useState("");
   const [studentClass, setStudentClass] = useState("");
   const [studentName, setStudentName] = useState("");
@@ -97,6 +108,13 @@ export default function GoogleDocsStudentApp({ classToken }: { classToken: strin
           <div className="eyebrow"><span /> GOOGLE DOCS REVIEW</div>
           <h1>쓴 글을 공유하고<br /><em>한 단계 더</em> 다듬어 봐요.</h1>
           <p>Google Docs 주소를 입력하면 선생님의 평가 기준에 따라<br className="desktop-only" /> 구체적인 AI 피드백을 받을 수 있어요.</p>
+          {classInfo && (
+            <div className="class-summary">
+              <span>이번 평가</span>
+              <strong>{classInfo.classTitle}</strong>
+              <p>{classInfo.assignment}</p>
+            </div>
+          )}
           <div className="botanical-sketch" aria-hidden>
             <span className="stem" /><span className="leaf leaf-one" /><span className="leaf leaf-two" /><span className="leaf leaf-three" /><span className="leaf leaf-four" />
           </div>
@@ -113,7 +131,7 @@ export default function GoogleDocsStudentApp({ classToken }: { classToken: strin
           <form className="submission-card" onSubmit={evaluate}>
             <div className="card-heading">
               <span>01</span>
-              <div><h2>글 제출하기</h2><p>평가받을 Google Docs 문서를 준비해 주세요.</p></div>
+              <div><h2>{classInfo?.classTitle ?? "글 제출하기"}</h2><p>평가받을 Google Docs 문서를 준비해 주세요.</p></div>
             </div>
             <div className="field-row">
               <label className="field"><span>학년 <b>*</b></span><input value={studentGrade} onChange={(e) => setStudentGrade(e.target.value)} placeholder="예: 5학년" /></label>

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { isTeacherId, type EvaluationType } from "@/lib/teacher-evaluations";
 import {
+  defaultModelForProvider,
   normalizeOutputOptions,
+  normalizeProvider,
+  normalizeProviderApiKeys,
   type ClassConfig,
 } from "@/lib/class-config";
 import {
@@ -50,9 +53,12 @@ export async function POST(
     if (body.type !== "pdf" && body.type !== "docs") {
       return NextResponse.json({ error: "평가 형식을 확인해 주세요." }, { status: 400 });
     }
+    const provider = normalizeProvider(body.config?.provider);
     const config: ClassConfig = {
       apiKey: body.config?.apiKey?.trim() ?? "",
-      model: body.config?.model?.trim() || "gpt-5.5",
+      apiKeys: normalizeProviderApiKeys(body.config),
+      provider,
+      model: body.config?.model?.trim() || defaultModelForProvider(provider),
       classTitle: body.config?.classTitle?.trim() ?? "",
       assignment: body.config?.assignment?.trim() ?? "",
       rubric: body.config?.rubric?.trim() ?? "",

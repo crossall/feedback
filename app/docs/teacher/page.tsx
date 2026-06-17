@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
+import { defaultModelForProvider, type LlmProvider } from "@/lib/class-config";
 import { defaultGoogleDocsClassConfig } from "@/lib/google-docs-defaults";
 import EvaluationOutputOptionsField from "@/app/evaluation-output-options";
 import {
@@ -21,6 +22,10 @@ export default function GoogleDocsTeacherPage() {
   const [copied, setCopied] = useState(false);
   const [storageMessage, setStorageMessage] = useState("");
   const [hasStoredApiKey, setHasStoredApiKey] = useState(false);
+  const [hasStoredApiKeys, setHasStoredApiKeys] = useState({
+    openai: false,
+    anthropic: false,
+  });
   const [googleAuth, setGoogleAuth] = useState({
     configured: false,
     connected: false,
@@ -58,6 +63,10 @@ export default function GoogleDocsTeacherPage() {
             setEvaluationId(saved.id);
             setSettings(saved.config);
             setHasStoredApiKey(saved.hasApiKey);
+            setHasStoredApiKeys(saved.hasApiKeys ?? {
+              openai: saved.hasApiKey,
+              anthropic: false,
+            });
             setStorageMessage("서버 보관함에서 저장된 Google Docs 평가를 불러왔어요.");
           } catch (caught) {
             setError(caught instanceof Error ? caught.message : "평가를 불러오지 못했습니다.");
@@ -80,6 +89,10 @@ export default function GoogleDocsTeacherPage() {
     const saved = await saveEvaluation(teacherId, "docs", settings, evaluationId || undefined);
     setEvaluationId(saved.id);
     setHasStoredApiKey(saved.hasApiKey);
+    setHasStoredApiKeys(saved.hasApiKeys ?? {
+      openai: saved.hasApiKey,
+      anthropic: false,
+    });
     window.history.replaceState(
       null,
       "",
@@ -173,16 +186,67 @@ export default function GoogleDocsTeacherPage() {
             <input value={settings.classTitle} onChange={(e) => setSettings({ ...settings, classTitle: e.target.value })} />
           </label>
           <label className="field full">
-            <span>OpenAI API 키 <b>*</b></span>
-            <input type="password" value={settings.apiKey} onChange={(e) => setSettings({ ...settings, apiKey: e.target.value })} placeholder={hasStoredApiKey ? "서버에 저장된 API 키 사용 중" : "sk-..."} autoComplete="off" />
-            <small>{hasStoredApiKey ? "새 키를 입력하지 않으면 서버에 저장된 기존 키를 계속 사용합니다." : "API 키는 서버에서 암호화해 저장하며 브라우저로 다시 전송하지 않습니다."}</small>
+            <span>평가 모델 제공자 <b>*</b></span>
+            <select
+              value={settings.provider ?? "openai"}
+              onChange={(e) => {
+                const provider = e.target.value as LlmProvider;
+                setSettings({
+                  ...settings,
+                  provider,
+                  model: defaultModelForProvider(provider),
+                });
+              }}
+            >
+              <option value="openai">OpenAI GPT</option>
+              <option value="anthropic">Anthropic Claude</option>
+            </select>
+          </label>
+          <label className="field full">
+            <span>OpenAI API 키</span>
+            <input
+              type="password"
+              value={settings.apiKeys?.openai ?? settings.apiKey}
+              onChange={(e) => setSettings({
+                ...settings,
+                apiKey: e.target.value,
+                apiKeys: { ...settings.apiKeys, openai: e.target.value },
+              })}
+              placeholder={hasStoredApiKeys.openai || hasStoredApiKey ? "서버에 저장된 OpenAI 키 사용 중" : "sk-..."}
+              autoComplete="off"
+            />
+            <small>{hasStoredApiKeys.openai || hasStoredApiKey ? "새 키를 입력하지 않으면 서버에 저장된 기존 OpenAI 키를 계속 사용합니다." : "API 키는 서버에서 암호화해 저장하며 브라우저로 다시 전송하지 않습니다."}</small>
+          </label>
+          <label className="field full">
+            <span>Claude API 키</span>
+            <input
+              type="password"
+              value={settings.apiKeys?.anthropic ?? ""}
+              onChange={(e) => setSettings({
+                ...settings,
+                apiKeys: { ...settings.apiKeys, anthropic: e.target.value },
+              })}
+              placeholder={hasStoredApiKeys.anthropic ? "서버에 저장된 Claude 키 사용 중" : "sk-ant-..."}
+              autoComplete="off"
+            />
+            <small>{hasStoredApiKeys.anthropic ? "새 키를 입력하지 않으면 서버에 저장된 기존 Claude 키를 계속 사용합니다." : "Claude를 선택할 때 사용할 Anthropic API 키입니다."}</small>
           </label>
           <label className="field full">
             <span>평가 모델</span>
             <select value={settings.model} onChange={(e) => setSettings({ ...settings, model: e.target.value })}>
-              <option value="gpt-5.5">GPT-5.5 · 높은 평가 품질</option>
-              <option value="gpt-5.4-mini">GPT-5.4 mini · 비용 절약</option>
-              <option value="gpt-4o">GPT-4o · 호환 모델</option>
+              {(settings.provider ?? "openai") === "anthropic" ? (
+                <>
+                  <option value="claude-sonnet-4-5">Claude Sonnet 4.5 · 높은 평가 품질</option>
+                  <option value="claude-haiku-4-5">Claude Haiku 4.5 · 빠른 평가</option>
+                  <option value="claude-opus-4-1">Claude Opus 4.1 · 깊은 평가</option>
+                </>
+              ) : (
+                <>
+                  <option value="gpt-5.5">GPT-5.5 · 높은 평가 품질</option>
+                  <option value="gpt-5.4-mini">GPT-5.4 mini · 비용 절약</option>
+                  <option value="gpt-4o">GPT-4o · 호환 모델</option>
+                </>
+              )}
             </select>
           </label>
           <label className="field full">
@@ -192,7 +256,7 @@ export default function GoogleDocsTeacherPage() {
           <label className="field full">
             <span>평가 루브릭 <b>*</b></span>
             <textarea className="rubric-input" rows={17} value={settings.rubric} onChange={(e) => setSettings({ ...settings, rubric: e.target.value })} />
-            <small>각 항목의 배점을 적고, 전체 점수의 합이 100점이 되도록 작성해 주세요.</small>
+            <small>각 항목의 배점을 적어 주세요. 전체 점수는 루브릭과 추가 프롬프트에 따라 AI가 산출합니다.</small>
           </label>
           <label className="field full">
             <span>추가 프롬프트</span>
@@ -226,7 +290,7 @@ export default function GoogleDocsTeacherPage() {
             <button type="button" className="danger-text-button" onClick={resetSettings}>입력 초기화</button>
           </div>
           <div className="settings-actions">
-            <button type="button" className="text-button" onClick={() => setSettings({ ...defaultGoogleDocsClassConfig, apiKey: settings.apiKey })}>기본 루브릭으로 되돌리기</button>
+            <button type="button" className="text-button" onClick={() => setSettings({ ...defaultGoogleDocsClassConfig, apiKey: settings.apiKey, apiKeys: settings.apiKeys })}>기본 루브릭으로 되돌리기</button>
             <button className="primary-button save-button" disabled={loading}>{loading ? "암호화 링크 만드는 중..." : "저장하고 학생용 링크 만들기"}</button>
           </div>
 

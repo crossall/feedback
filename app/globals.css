@@ -45,6 +45,10 @@ main {
 .hero h1, .teacher-intro h1 { margin: 0; font: 700 clamp(44px, 5.2vw, 74px)/1.03 var(--font-display), serif; letter-spacing: -.04em; }
 .hero h1 em, .teacher-intro h1 em { color: var(--leaf); font-weight: 400; }
 .hero > p, .teacher-intro > p { color: #65736d; font-size: 16px; line-height: 1.8; margin: 24px 0 0; }
+.class-summary { width: min(620px, 100%); margin-top: 24px; padding: 18px 20px; border-left: 3px solid var(--leaf); background: rgba(255,253,247,.78); box-shadow: 0 10px 28px rgba(50,61,45,.06); }
+.class-summary span { display: block; color: var(--rust); font-size: 9px; font-weight: 800; letter-spacing: .16em; margin-bottom: 6px; }
+.class-summary strong { display: block; font: 700 20px/1.35 var(--font-display), serif; }
+.class-summary p { margin: 8px 0 0; color: #65736d; font-size: 12px; line-height: 1.65; }
 .botanical-sketch { position: absolute; right: max(5vw, calc((100vw - 1160px)/2)); bottom: -25px; width: 300px; height: 340px; opacity: .75; transform: rotate(7deg); }
 .stem { position: absolute; width: 2px; height: 290px; background: var(--leaf); transform: rotate(30deg); left: 150px; top: 50px; transform-origin: bottom; }
 .botanical-sketch .leaf { position: absolute; width: 95px; height: 42px; border: 2px solid var(--leaf); border-radius: 100% 0 100% 0; }
