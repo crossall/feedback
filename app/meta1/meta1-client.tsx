@@ -135,6 +135,32 @@ const earthAndSpaceFactCheckRules = [
   "확실하지 않은 내용은 단정하지 말고 \"자료로 다시 확인해 보면 좋겠어요\"처럼 확인이 필요하다고 안내하세요.",
 ];
 
+function migrateMeta1ConfigCopy(result: StorageResult) {
+  if (!result?.value) return result;
+  try {
+    const config = JSON.parse(result.value);
+    const text = JSON.stringify({
+      project: config?.project,
+      aiFeedback: config?.rubric?.aiFeedback?.items,
+      peer: config?.rubric?.peer?.items,
+    });
+    if (!/(식물|안내서|뿌리|줄기|잎|꽃|열매)/.test(text)) return result;
+
+    return {
+      value: JSON.stringify({
+        ...config,
+        project: earthAndSpaceConfigPatch.project,
+        rubric: {
+          ...(config.rubric || {}),
+          ...earthAndSpaceConfigPatch.rubric,
+        },
+      }),
+    };
+  } catch {
+    return result;
+  }
+}
+
 async function meta1Storage(action: "get" | "set" | "list", payload: Record<string, unknown>) {
   const response = await fetch("/api/meta1/storage", {
     method: "POST",
@@ -157,7 +183,8 @@ function installStorageBridge() {
         const value = window.localStorage.getItem(`${localPrefix}${key}`);
         return value === null ? null : { value };
       }
-      return meta1Storage("get", { key }) as Promise<StorageResult>;
+      const result = await meta1Storage("get", { key }) as StorageResult;
+      return key === "pj_config" ? migrateMeta1ConfigCopy(result) : result;
     },
     async set(key, value, shared = true) {
       if (!shared) {
