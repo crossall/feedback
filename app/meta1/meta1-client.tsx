@@ -17,6 +17,50 @@ declare global {
 
 const appScope = "meta1";
 const localPrefix = "meta1:";
+const earthMotionThemeCss = `
+.pj-root{
+  --ink:#172033;
+  --ink-soft:#566276;
+  --ink-faint:#8b97aa;
+  --paper:#eef4fb;
+  --surface:#ffffff;
+  --surface-2:#f5f8fc;
+  --line:#dce6f1;
+  --line-2:#cad8e8;
+  --green:#197b72;
+  --green-700:#0f5f58;
+  --green-soft:#e1f2ef;
+  --green-100:#c6e4df;
+  --accent:#d68a16;
+  --accent-soft:#fff0d5;
+  --accent-700:#975f09;
+  --teal:#1b74b7;
+  --teal-soft:#e1effb;
+  --violet:#4f5aa8;
+  --violet-soft:#e8ebfa;
+  --rose:#b85f58;
+  --rose-soft:#f8e7e5;
+  --gold:#d7a625;
+  background:linear-gradient(180deg,#edf4fb 0%,#f8fbff 48%,#eef7f1 100%);
+}
+.pj-root .logo,
+.pj-root .btn.primary{
+  background:linear-gradient(150deg,#197b72,#1b74b7);
+}
+.pj-root .btn.accent{
+  background:linear-gradient(150deg,#d68a16,#f0b04a);
+}
+.pj-root .connector .fill,
+.pj-root .scorebar > i{
+  background:linear-gradient(180deg,#197b72,#1b74b7);
+}
+.pj-root .scorebar > i{
+  background:linear-gradient(90deg,#197b72,#1b74b7);
+}
+.pj-root .card{
+  box-shadow:0 18px 50px -36px rgba(23,32,51,.32);
+}
+`;
 
 async function meta1Storage(action: "get" | "set" | "list", payload: Record<string, unknown>) {
   const response = await fetch("/api/meta1/storage", {
@@ -75,6 +119,7 @@ export default function Meta1Client() {
       groups: [],
     },
     allowEmptyClasses: true,
+    themeCss: earthMotionThemeCss,
   });
   installStorageBridge();
   return <ProjectEvaluationApp />;

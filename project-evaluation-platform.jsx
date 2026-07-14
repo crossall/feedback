@@ -91,6 +91,7 @@ function runtimeOptions() {
     reflectionsCacheSchema: REFLECTIONS_CACHE_SCHEMA,
     defaultConfigPatch: null,
     allowEmptyClasses: false,
+    themeCss: "",
     ...projectEvaluationRuntime,
   };
 }
@@ -993,14 +994,14 @@ export default function App() {
   if (!ready)
     return (
       <div className="pj-root" style={{ display: "grid", placeItems: "center", height: "100vh" }}>
-        <style>{CSS}</style>
+        <style>{CSS}{runtimeOptions().themeCss}</style>
         <div className="center muted"><Loader2 className="spin" size={20} /> 불러오는 중…</div>
       </div>
     );
 
   return (
     <div className="pj-root">
-      <style>{CSS}</style>
+      <style>{CSS}{runtimeOptions().themeCss}</style>
       <header className="topbar">
         <div className="topbar-in">
           <button className="pj-brand" type="button" onClick={reset} aria-label="프로젝트 첫 화면으로 돌아가기">
