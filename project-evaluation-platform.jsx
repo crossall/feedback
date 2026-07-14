@@ -92,6 +92,17 @@ function runtimeOptions() {
     defaultConfigPatch: null,
     allowEmptyClasses: false,
     themeCss: "",
+    projectTitlePlaceholder: "예: 식물 안내서 만들기",
+    projectSubjectPlaceholder: "예: 식물",
+    quickStartDescription: "식물 안내서 예시(세 평가 · 동료 55 + 협업 45)로 한 번에 채워볼 수 있어요. 다른 주제는 위 ‘루브릭 편집’ 탭에서 붙여넣기로 바꾸면 됩니다.",
+    rubricImportHint: "아래에 평가 기준 텍스트를 붙여넣고 가져오면, 세 평가(AI 피드백 / 동료 양적 / 협업)와 주관식 문항이 한 번에 채워집니다. 식물 안내서가 아니어도 같은 형식이면 동작해요.",
+    rubricImportPlaceholder: "여기에 붙여넣으세요. 예)\n■ 평가 1 — 결과물 평가 · AI 피드백용 (100점)\n1. 구조·기능·정확성 (20/16/12)\n   상: ...\n   중: ...\n   하: ...\n...",
+    aiFactCheckRules: [
+      "사실 확인을 꼭 하세요. 쉬운 표현이나 다른 말로 설명한 것은 허용하되, 식물의 구조·기능·생장·분류·생태 등에 대한 과학적 사실 오류는 그냥 넘기지 말고 해당 항목 rating을 낮추며 improve에 바로잡을 내용을 포함하세요.",
+      "PDF에 특정 식물 이름이나 구체적인 식물 정보가 나오면 웹 검색으로 신뢰할 수 있는 자료를 찾아 대조한 뒤 평가하세요.",
+      "사실 오류를 발견하면 improve의 첫머리를 \"사실 확인:\"으로 시작하고, 잘못된 내용과 바르게 고칠 내용을 초등학생이 이해할 수 있게 구체적으로 적으세요.",
+      "확실하지 않은 내용은 단정하지 말고 \"자료로 다시 확인해 보면 좋겠어요\"처럼 확인이 필요하다고 안내하세요.",
+    ],
     ...projectEvaluationRuntime,
   };
 }
@@ -1296,11 +1307,11 @@ function TeacherSetup({ draft, setDraft, configSaved }) {
           <h2 className="h2" style={{ marginBottom: 14 }}>프로젝트 정보</h2>
           <div className="field">
             <label className="label">프로젝트 이름</label>
-            <input className="input" value={draft.project.title} onChange={(e) => set("title", e.target.value)} placeholder="예: 식물 안내서 만들기" />
+            <input className="input" value={draft.project.title} onChange={(e) => set("title", e.target.value)} placeholder={runtimeOptions().projectTitlePlaceholder} />
           </div>
           <div className="field">
             <label className="label">주제 (AI 채점 기준이 됩니다)</label>
-            <input className="input" value={draft.project.subject} onChange={(e) => set("subject", e.target.value)} placeholder="예: 식물" />
+            <input className="input" value={draft.project.subject} onChange={(e) => set("subject", e.target.value)} placeholder={runtimeOptions().projectSubjectPlaceholder} />
             <span className="hint">AI가 결과물을 채점할 때 이 주제에 얼마나 맞는지 판단합니다.</span>
           </div>
           <div className="field">
@@ -1331,7 +1342,7 @@ function TeacherSetup({ draft, setDraft, configSaved }) {
         <div className="card pad-lg">
           <div className="eyebrow"><BookOpen size={14} /> 빠른 시작</div>
           <p className="muted" style={{ fontSize: 13.5, margin: "8px 0 12px" }}>
-            식물 안내서 예시(세 평가 · 동료 55 + 협업 45)로 한 번에 채워볼 수 있어요. 다른 주제는 위 ‘루브릭 편집’ 탭에서 붙여넣기로 바꾸면 됩니다.
+            {runtimeOptions().quickStartDescription}
           </p>
           <button className="btn" onClick={loadExample}><RefreshCw size={15} /> 예시 루브릭 불러오기</button>
         </div>
@@ -1442,11 +1453,11 @@ ${pasteText}`;
           <span className="chip" style={{ background: "var(--teal)", color: "#fff" }}><ClipboardList size={18} /></span>
           <div>
             <div className="h2">루브릭 붙여넣기로 가져오기</div>
-            <div className="hint" style={{ maxWidth: 560 }}>아래에 평가 기준 텍스트를 붙여넣고 가져오면, 세 평가(AI 피드백 / 동료 양적 / 협업)와 주관식 문항이 한 번에 채워집니다. 식물 안내서가 아니어도 같은 형식이면 동작해요.</div>
+            <div className="hint" style={{ maxWidth: 560 }}>{runtimeOptions().rubricImportHint}</div>
           </div>
         </div>
         <textarea className="textarea" style={{ minHeight: 150, fontSize: 13, fontFamily: "ui-monospace, monospace" }}
-          placeholder={"여기에 붙여넣으세요. 예)\n■ 평가 1 — 결과물 평가 · AI 피드백용 (100점)\n1. 구조·기능·정확성 (20/16/12)\n   상: ...\n   중: ...\n   하: ...\n..."}
+          placeholder={runtimeOptions().rubricImportPlaceholder}
           value={pasteText} onChange={(e) => setPasteText(e.target.value)} />
         <div className="between" style={{ marginTop: 10, flexWrap: "wrap", gap: 8 }}>
           <span className="hint">‘형식 그대로’는 위 예시 형식, ‘AI로 정리’는 표·메모 등 자유 형식도 맞춰줍니다.</span>
@@ -2404,6 +2415,9 @@ function StepResult({ config, me, draft, onDone, goNext, nextStepOpen = true }) 
       const b64 = draftPdfBase64;
       const rubricText = items.map((it) =>
         `${it.no}. ${it.name} — 상(${it.high}점): ${it.hi} / 중(${it.mid}점): ${it.mi} / 하(${it.low}점): ${it.lo}`).join("\n");
+      const factCheckRules = runtimeOptions().aiFactCheckRules
+        .map((rule) => `- ${rule}`)
+        .join("\n");
       const prompt =
 `당신은 초등학생 프로젝트(주제: "${config.project.subject}")의 결과물을 보고, 학생이 결과물을 더 좋게 고치도록 돕는 따뜻한 선생님입니다.
 이 평가는 점수를 매기기 위한 것이 아니라 "수정에 참고할 피드백"을 주기 위한 것입니다.
@@ -2417,10 +2431,7 @@ ${rubricText}
 - summary는 다른 모둠 친구들이 읽고 평가에 참고할 수 있도록 결과물 내용을 120자 이내로 요약.
 - good은 이 결과물에서 특히 잘한 점 2~3가지를 초등학생이 이해할 수 있는 따뜻한 말투로(한국어 120자 이내).
 - improve는 더 좋게 고치면 좋을 점 2~3가지를 구체적이고 친절하게(한국어 150자 이내).
-- 사실 확인을 꼭 하세요. 쉬운 표현이나 다른 말로 설명한 것은 허용하되, 식물의 구조·기능·생장·분류·생태 등에 대한 과학적 사실 오류는 그냥 넘기지 말고 해당 항목 rating을 낮추며 improve에 바로잡을 내용을 포함하세요.
-- PDF에 특정 식물 이름이나 구체적인 식물 정보가 나오면 웹 검색으로 신뢰할 수 있는 자료를 찾아 대조한 뒤 평가하세요.
-- 사실 오류를 발견하면 improve의 첫머리를 "사실 확인:"으로 시작하고, 잘못된 내용과 바르게 고칠 내용을 초등학생이 이해할 수 있게 구체적으로 적으세요.
-- 확실하지 않은 내용은 단정하지 말고 "자료로 다시 확인해 보면 좋겠어요"처럼 확인이 필요하다고 안내하세요.
+${factCheckRules}
 다른 말 없이 아래 JSON 형식으로만 응답:
 {"summary":"...","items":[{"no":1,"rating":"상","score":20,"reason":"..."}],"good":"...","improve":"..."}`;
       setBusyLabel("AI가 읽는 중…");
