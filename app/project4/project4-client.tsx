@@ -438,6 +438,7 @@ function AiStep({ config, group, me, token, workspace, setWorkspace, busy, actio
 
   async function downloadPdf() {
     if (!review || !sheetRef.current) return;
+    const sheet = sheetRef.current;
     setDownloading(true);
     setError("");
     try {
@@ -445,15 +446,78 @@ function AiStep({ config, group, me, token, workspace, setWorkspace, busy, actio
         import("html2canvas"),
         import("jspdf"),
       ]);
-      const pages = Array.from(sheetRef.current.querySelectorAll<HTMLElement>("[data-pdf-page]"));
+      const pages = Array.from(sheet.querySelectorAll<HTMLElement>("[data-pdf-page]"));
       const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
       for (let index = 0; index < pages.length; index += 1) {
-        const canvas = await html2canvas(pages[index], {
-          scale: 2,
-          backgroundColor: "#ffffff",
-          logging: false,
-          useCORS: true,
+        const frame = document.createElement("iframe");
+        Object.assign(frame.style, {
+          position: "fixed",
+          top: "0",
+          left: "-12000px",
+          width: "794px",
+          height: "1123px",
+          border: "0",
+          pointerEvents: "none",
         });
+        document.body.appendChild(frame);
+
+        const frameDocument = frame.contentDocument;
+        if (!frameDocument) throw new Error("PDF 출력 화면을 준비하지 못했습니다.");
+        frameDocument.open();
+        frameDocument.write(`<!doctype html><html><head><base href="${window.location.origin}/"></head><body></body></html>`);
+        frameDocument.close();
+
+        const styleLoads: Promise<void>[] = [];
+        document.querySelectorAll<HTMLStyleElement | HTMLLinkElement>('style, link[rel="stylesheet"]').forEach((source) => {
+          const copied = source.cloneNode(true) as HTMLStyleElement | HTMLLinkElement;
+          if (copied instanceof HTMLLinkElement) {
+            styleLoads.push(new Promise((resolve) => {
+              copied.addEventListener("load", () => resolve(), { once: true });
+              copied.addEventListener("error", () => resolve(), { once: true });
+            }));
+          }
+          frameDocument.head.appendChild(copied);
+        });
+
+        Object.assign(frameDocument.documentElement.style, {
+          width: "794px",
+          height: "1123px",
+          margin: "0",
+        });
+        Object.assign(frameDocument.body.style, {
+          width: "794px",
+          height: "1123px",
+          margin: "0",
+          overflow: "hidden",
+          background: "#ffffff",
+        });
+        const page = pages[index].cloneNode(true) as HTMLElement;
+        Object.assign(page.style, {
+          position: "relative",
+          top: "0",
+          left: "0",
+          display: "block",
+        });
+        frameDocument.body.appendChild(page);
+
+        let canvas: HTMLCanvasElement;
+        try {
+          await Promise.all(styleLoads);
+          await frameDocument.fonts.ready;
+          await new Promise<void>((resolve) => frame.contentWindow?.requestAnimationFrame(() => resolve()));
+          canvas = await html2canvas(page, {
+            scale: 2,
+            backgroundColor: "#ffffff",
+            width: 794,
+            height: 1123,
+            windowWidth: 794,
+            windowHeight: 1123,
+            logging: false,
+            useCORS: true,
+          });
+        } finally {
+          frame.remove();
+        }
         if (index > 0) pdf.addPage();
         const ratio = Math.min(190 / canvas.width, 277 / canvas.height);
         const width = canvas.width * ratio;
@@ -494,7 +558,11 @@ function GroupFeedbackPdf({ ref, config, group, me, review }: {
   me: { classId: string; groupId: string; name: string };
   review: Project4AiReview;
 }) {
-  const pageGroups = [review.feedbacks.slice(0, 3), review.feedbacks.slice(3)];
+  const pageGroups = [
+    { feedbacks: review.feedbacks.slice(0, 2), offset: 0 },
+    { feedbacks: review.feedbacks.slice(2, 4), offset: 2 },
+    { feedbacks: review.feedbacks.slice(4), offset: 4 },
+  ];
   const members = group?.students.map((student) => student.name).join(", ") || "";
   const basisLabels: Record<NonNullable<Project4AiFeedback["basis"]>, string> = {
     measurement: "측정 자료",
@@ -502,7 +570,64 @@ function GroupFeedbackPdf({ ref, config, group, me, review }: {
     criteria: "평가 기준",
     unsure: "잘 모르겠음",
   };
-  return <div className={styles.pdfDocument} ref={ref} aria-hidden="true">{pageGroups.map((feedbacks, pageIndex) => <section className={styles.pdfPage} data-pdf-page key={pageIndex}><header><small>PROJECT 4 · SECRETS OF THE SEASONS</small><h1>AI 피드백 검토지</h1><p>모둠 대본에 대한 AI 피드백 - 무엇을 반영할지 우리가 정합니다.</p></header><div className={styles.pdfIdentity}><b>{classLabel(config, me.classId)} · {groupLabel(config, me.groupId)}</b><span>모둠원 {members}</span><span>{review.revision || 1}차 · {review.fileName}</span></div>{pageIndex === 0 && <div className={styles.pdfGuide}><b>판단 기준</b><p>① 우리가 측정하거나 지구본으로 확인한 것과 맞는가?</p><p>② 우리가 만든 평가 기준(루브릭)에 맞는가?</p></div>}<div className={styles.pdfFeedbacks}>{feedbacks.map((feedback, localIndex) => { const index = pageIndex === 0 ? localIndex : localIndex + 3; return <article key={feedback.id}><div><b>{index + 1}</b><h2>{feedback.title}</h2><span>관련 기준 {feedback.criterionNumbers.join(", ") || "-"}</span></div><p>{feedback.feedback}</p><blockquote>{feedback.evidence}</blockquote><div className={styles.pdfDecision}><b>모둠 판단</b><span>{feedback.accept === true ? "O 반영" : feedback.accept === false ? "X 반영하지 않음" : "O / X"}</span></div><div className={styles.pdfDecision}><b>확인한 근거</b><span>{feedback.basis ? basisLabels[feedback.basis] : " "}</span></div><div className={styles.pdfReason}><b>그렇게 정한 까닭</b><p>{feedback.reason || " "}</p></div></article>; })}</div><footer><b>모두 반영할 필요는 없습니다.</b><span>요청: {me.name} · 판단이 어려우면 측정 자료와 지구본 실험으로 확인해 보세요.</span><small>{pageIndex + 1} / {pageGroups.length}</small></footer></section>)}</div>;
+  return (
+    <div className={styles.pdfDocument} ref={ref} aria-hidden="true">
+      {pageGroups.map(({ feedbacks, offset }, pageIndex) => (
+        <section className={styles.pdfPage} data-pdf-page key={pageIndex}>
+          <header>
+            <small>PROJECT 4 · SECRETS OF THE SEASONS</small>
+            <h1>AI 피드백 검토지</h1>
+            <p>모둠 대본에 대한 AI 피드백 - 무엇을 반영할지 우리가 정합니다.</p>
+          </header>
+          <div className={styles.pdfIdentity}>
+            <b>{classLabel(config, me.classId)} · {groupLabel(config, me.groupId)}</b>
+            <span>모둠원 {members}</span>
+            <span>{review.revision || 1}차 · {review.fileName}</span>
+          </div>
+          {pageIndex === 0 && (
+            <div className={styles.pdfGuide}>
+              <b>판단 기준</b>
+              <p>① 우리가 측정하거나 지구본으로 확인한 것과 맞는가?</p>
+              <p>② 우리가 만든 평가 기준(루브릭)에 맞는가?</p>
+            </div>
+          )}
+          <div className={styles.pdfFeedbacks}>
+            {feedbacks.map((feedback, localIndex) => {
+              const index = offset + localIndex;
+              return (
+                <article key={feedback.id}>
+                  <div>
+                    <b>{index + 1}</b>
+                    <h2>{feedback.title}</h2>
+                    <span>관련 기준 {feedback.criterionNumbers.join(", ") || "-"}</span>
+                  </div>
+                  <p>{feedback.feedback}</p>
+                  <blockquote>{feedback.evidence}</blockquote>
+                  <div className={styles.pdfDecision}>
+                    <b>모둠 판단</b>
+                    <span>{feedback.accept === true ? "O 반영" : feedback.accept === false ? "X 반영하지 않음" : "O / X"}</span>
+                  </div>
+                  <div className={styles.pdfDecision}>
+                    <b>확인한 근거</b>
+                    <span>{feedback.basis ? basisLabels[feedback.basis] : " "}</span>
+                  </div>
+                  <div className={styles.pdfReason}>
+                    <b>그렇게 정한 까닭</b>
+                    <p>{feedback.reason || " "}</p>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <footer>
+            <b>모두 반영할 필요는 없습니다.</b>
+            <span>요청: {me.name} · 판단이 어려우면 측정 자료와 지구본 실험으로 확인해 보세요.</span>
+            <small>{pageIndex + 1} / {pageGroups.length}</small>
+          </footer>
+        </section>
+      ))}
+    </div>
+  );
 }
 
 function FinalStep({ workspace, busy, action }: { workspace: StudentWorkspace; busy: boolean; action: (name: string, payload?: Record<string, unknown>) => Promise<StudentWorkspace | null> }) {

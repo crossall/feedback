@@ -1150,7 +1150,9 @@
 }
 
 .pdfPage {
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 794px;
   min-height: 1123px;
   padding: 58px 62px 76px;
@@ -1193,7 +1195,8 @@
   font-size: 12px;
 }
 
-.pdfIdentity > * {
+.pdfIdentity > b,
+.pdfIdentity > span {
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -1278,8 +1281,10 @@
   font-size: 11px;
 }
 
-.pdfDecision > *,
-.pdfReason > * {
+.pdfDecision > b,
+.pdfDecision > span,
+.pdfReason > b,
+.pdfReason > p {
   padding: 7px 8px;
 }
 
