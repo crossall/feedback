@@ -116,7 +116,10 @@ export async function POST(request: Request) {
       const classId = text(body.targetClassId, 100);
       const groupId = text(body.targetGroupId, 100);
       const name = text(body.name, 100);
-      const evaluatorClass = text(body.evaluatorClass, 100);
+      const evaluatorClassNumber = text(body.evaluatorClass, 2);
+      const evaluatorClass = /^\d{1,2}$/.test(evaluatorClassNumber) && Number(evaluatorClassNumber) > 0
+        ? `5학년 ${Number(evaluatorClassNumber)}반`
+        : "";
       if (!name || !evaluatorClass || !groupFromConfig(config, classId, groupId)) {
         return NextResponse.json({ error: "이름, 반, 평가할 모둠을 확인해 주세요." }, { status: 400 });
       }
