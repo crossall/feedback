@@ -7,6 +7,7 @@ import {
   Check,
   ChevronRight,
   ClipboardCheck,
+  Download,
   FileText,
   GraduationCap,
   Leaf,
@@ -26,7 +27,7 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import {
   project4DefaultConfig,
   project4Id,
@@ -37,6 +38,8 @@ import {
   type Project4FinalScript,
   type Project4JuniorResponse,
   type Project4PeerResponse,
+  type Project4PersonalFeedback,
+  type Project4PersonalFeedbackItem,
   type Project4Reflection,
   type Project4Representative,
 } from "@/lib/project4";
@@ -46,6 +49,7 @@ type Role = "home" | "teacherLogin" | "teacher" | "studentLogin" | "student" | "
 type TeacherTab = "setup" | "stages" | "results";
 
 type StudentWorkspace = {
+  personalFeedback: Project4PersonalFeedback | null;
   submittedTargetIds: string[];
   received: Array<{ id: string; good: string; blocked: string }>;
   representative: Pick<Project4Representative, "selectedStudentId" | "selectedStudentName" | "reason"> | null;
@@ -62,6 +66,7 @@ type StudentWorkspace = {
 };
 
 type TeacherData = {
+  personal: Project4PersonalFeedback[];
   peer: Project4PeerResponse[];
   representatives: Project4Representative[];
   ai: Project4AiReview[];
@@ -71,6 +76,7 @@ type TeacherData = {
 };
 
 const emptyWorkspace: StudentWorkspace = {
+  personalFeedback: null,
   submittedTargetIds: [],
   received: [],
   representative: null,
@@ -87,7 +93,7 @@ const emptyWorkspace: StudentWorkspace = {
 };
 
 const emptyTeacherData: TeacherData = {
-  peer: [], representatives: [], ai: [], finals: [], juniors: [], reflections: [],
+  personal: [], peer: [], representatives: [], ai: [], finals: [], juniors: [], reflections: [],
 };
 
 async function project4Api<T>(action: string, payload: Record<string, unknown> = {}) {
@@ -198,7 +204,7 @@ function RoleHome({ config, setRole }: { config: Project4Config; setRole: (role:
       </div>
       <div className={styles.roleGrid}>
         <button type="button" onClick={() => setRole("studentLogin")}>
-          <span className={styles.roleIcon}><UserRound size={25} /></span><div><small>6학년</small><strong>프로젝트 평가 시작</strong><p>친구 피드백부터 자기평가까지 7단계로 진행해요.</p></div><ChevronRight />
+          <span className={styles.roleIcon}><UserRound size={25} /></span><div><small>6학년</small><strong>프로젝트 평가 시작</strong><p>개인 AI 검토부터 자기평가까지 8단계로 진행해요.</p></div><ChevronRight />
         </button>
         <button type="button" onClick={() => setRole("juniorLogin")}>
           <span className={styles.roleIcon}><School size={25} /></span><div><small>5학년</small><strong>선배 영상 평가</strong><p>패들렛에서 영상을 본 뒤 이해한 정도를 알려 줘요.</p></div><ChevronRight />
@@ -301,7 +307,7 @@ function TeacherSetup({ draft, setDraft, save, busy }: { draft: Project4Config; 
       {draft.classes.length === 0 ? <div className={styles.empty}>반을 추가한 뒤 모둠과 학생 이름을 등록해 주세요.</div> : draft.classes.map((classroom) => <article className={styles.classEditor} key={classroom.id}><div className={styles.classEditorHead}><input value={classroom.name} onChange={(event) => setDraft({ ...draft, classes: draft.classes.map((item) => item.id === classroom.id ? { ...item, name: event.target.value } : item) })} /><div><button type="button" onClick={() => addGroup(classroom.id)}><Plus size={14} /> 모둠 추가</button><button type="button" className={styles.dangerButton} onClick={() => setDraft({ ...draft, classes: draft.classes.filter((item) => item.id !== classroom.id), groups: draft.groups.filter((group) => group.classId !== classroom.id) })}><Trash2 size={14} /></button></div></div>
         <div className={styles.groupGrid}>{draft.groups.filter((group) => group.classId === classroom.id).map((group) => <div className={styles.groupEditor} key={group.id}><div className={styles.groupTitle}><input value={group.name} onChange={(event) => updateGroup(group.id, { name: event.target.value })} /><button type="button" onClick={() => setDraft({ ...draft, groups: draft.groups.filter((item) => item.id !== group.id) })}><Trash2 size={13} /></button></div><div className={styles.studentList}>{group.students.map((student) => <div key={student.id}><input value={student.name} onChange={(event) => updateGroup(group.id, { students: group.students.map((item) => item.id === student.id ? { ...item, name: event.target.value } : item) })} /><button type="button" onClick={() => updateGroup(group.id, { students: group.students.filter((item) => item.id !== student.id) })}><Trash2 size={12} /></button></div>)}</div><button className={styles.addStudent} type="button" onClick={() => updateGroup(group.id, { students: [...group.students, { id: project4Id("student"), name: `학생 ${group.students.length + 1}` }] })}><Plus size={13} /> 학생 추가</button></div>)}</div>
       </article>)}</section>
-    <div className={styles.stickySave}><span>학생 이름은 평가자 확인을 위해 교사 화면에만 표시됩니다.</span><button className={styles.primaryButton} type="button" onClick={save} disabled={busy}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 변경사항 저장</button></div>
+    <div className={styles.stickySave}><span>학생 이름은 로그인 선택과 교사의 평가자 확인에 사용됩니다.</span><button className={styles.primaryButton} type="button" onClick={save} disabled={busy}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 변경사항 저장</button></div>
   </div>;
 }
 
@@ -312,8 +318,9 @@ function TeacherStages({ config, setStage, busy }: { config: Project4Config; set
 function TeacherResults({ config, data, refresh, busy }: { config: Project4Config; data: TeacherData; refresh: () => void; busy: boolean }) {
   return <div className={styles.panelStack}>
     <div className={styles.resultStats}>{[
-      ["동료평가", data.peer.length], ["대표 선정", data.representatives.length], ["AI 검토", data.ai.length], ["후배 응답", data.juniors.length], ["자기평가", data.reflections.length],
+      ["개인 AI", data.personal.length], ["동료평가", data.peer.length], ["대표 선정", data.representatives.length], ["모둠 AI", data.ai.length], ["후배 응답", data.juniors.length], ["자기평가", data.reflections.length],
     ].map(([label, value]) => <div key={String(label)}><span>{label}</span><strong>{value}</strong></div>)}<button type="button" onClick={refresh} disabled={busy}><RefreshCw className={busy ? styles.spin : ""} size={16} /> 새로고침</button></div>
+    <ResultSection title="개인 AI 피드백 검토 · 교사용 정답" empty={data.personal.length === 0}>{data.personal.map((review) => <article className={styles.aiRecord} key={review.studentId}><h3>{review.studentName} <small>{classLabel(config, review.classId)} · {groupLabel(config, review.groupId)} · {review.revision}차 · {review.fileName}</small></h3>{review.feedbacks.map((feedback, index) => <div key={feedback.id}><b>{index + 1}. {feedback.title}</b><span className={feedback.decision === "accept" ? styles.accept : styles.reject}>{feedback.decision === "accept" ? "학생 O" : feedback.decision === "reject" ? "학생 X" : "미응답"}</span><p><strong>정답: {feedback.isValid ? "O" : "X"}</strong>{feedback.teacherExplanation}<br /><small>학생 이유: {feedback.reason || "미입력"}</small></p></div>)}</article>)}</ResultSection>
     <ResultSection title="모둠 내 동료평가 · 교사 실명 확인" empty={data.peer.length === 0}>{data.peer.map((item) => <article className={styles.record} key={item.id}><div className={styles.recordMeta}><b>{item.evaluatorName}</b><span>→ {item.targetName}</span><small>{classLabel(config, item.classId)} · {groupLabel(config, item.groupId)}</small></div><div><p><strong>잘 전달된 부분</strong>{item.good}</p><p><strong>이해가 막힌 부분</strong>{item.blocked}</p></div></article>)}</ResultSection>
     <ResultSection title="대표 작품 선정" empty={data.representatives.length === 0}>{data.representatives.map((item) => <article className={styles.record} key={`${item.classId}-${item.groupId}`}><div className={styles.recordMeta}><b>{item.selectedStudentName} 작품</b><span>{groupLabel(config, item.groupId)}</span><small>입력: {item.submittedByName}</small></div><div><p><strong>선정 이유</strong>{item.reason}</p></div></article>)}</ResultSection>
     <ResultSection title="AI 피드백 판단" empty={data.ai.length === 0}>{data.ai.map((review) => <article className={styles.aiRecord} key={`${review.classId}-${review.groupId}`}><h3>{classLabel(config, review.classId)} · {groupLabel(config, review.groupId)} <small>입력: {review.submittedByName}</small></h3>{review.feedbacks.map((feedback) => <div key={feedback.id}><b>{feedback.title}</b><span className={feedback.accept === true ? styles.accept : styles.reject}>{feedback.accept === true ? "반영" : feedback.accept === false ? "미반영" : "판단 전"}</span><p>{feedback.reason || "판단 이유 미입력"}</p></div>)}{review.wrongFeedback && <p className={styles.wrongFeedback}><strong>잘못되었다고 본 피드백</strong>{review.wrongFeedback}</p>}</article>)}</ResultSection>
@@ -346,13 +353,14 @@ function StudentStudio({ config, setConfig, me, token, workspace, setWorkspace }
   const group = config.groups.find((item) => item.id === me.groupId);
   async function action(name: string, payload: Record<string, unknown> = {}) { setBusy(true); setError(""); try { const result = await project4Api<{ config: Project4Config; workspace: StudentWorkspace }>(name, { token, ...payload }); if (result.config) setConfig(result.config); setWorkspace(result.workspace); return result.workspace; } catch (caught) { setError(caught instanceof Error ? caught.message : "저장하지 못했습니다."); return null; } finally { setBusy(false); } }
   return <section className={styles.studentShell}><div className={styles.studentHead}><div><span className={styles.kicker}>MY SEASON PROJECT</span><h1>{me.name}의 평가 여정</h1><p>{classLabel(config, me.classId)} · {group?.name}</p></div><div className={styles.openNotice}><Lock size={15} /><span>{config.openStage}단계까지 열렸어요</span><button type="button" onClick={() => void action("studentWorkspace")} disabled={busy} aria-label="공개 단계와 결과 새로고침" title="새로고침"><RefreshCw className={busy ? styles.spin : ""} size={15} /></button></div></div><nav className={styles.journey}>{project4Stages.map((label, index) => { const number = index + 1; const locked = number > config.openStage; return <button key={label} disabled={locked} className={stage === number ? styles.active : ""} onClick={() => setStage(number)}><span>{locked ? <Lock size={13} /> : number}</span><small>{label}</small></button>; })}</nav>{error && <InlineError text={error} />}<div className={styles.studentWork}>
-    {stage === 1 && <PeerStep config={config} group={group} me={me} workspace={workspace} busy={busy} action={action} />}
-    {stage === 2 && <ReceivedStep workspace={workspace} />}
-    {stage === 3 && <RepresentativeStep group={group} workspace={workspace} busy={busy} action={action} />}
-    {stage === 4 && <AiStep token={token} workspace={workspace} setWorkspace={setWorkspace} busy={busy} action={action} />}
-    {stage === 5 && <FinalStep workspace={workspace} busy={busy} action={action} />}
-    {stage === 6 && <JuniorWaitStep summary={workspace.juniorSummary} />}
-    {stage === 7 && <ReflectionStep workspace={workspace} busy={busy} action={action} />}
+    {stage === 1 && <PersonalFeedbackStep config={config} me={me} token={token} workspace={workspace} setWorkspace={setWorkspace} busy={busy} action={action} />}
+    {stage === 2 && <PeerStep config={config} group={group} me={me} workspace={workspace} busy={busy} action={action} />}
+    {stage === 3 && <ReceivedStep workspace={workspace} />}
+    {stage === 4 && <RepresentativeStep group={group} workspace={workspace} busy={busy} action={action} />}
+    {stage === 5 && <AiStep token={token} workspace={workspace} setWorkspace={setWorkspace} busy={busy} action={action} />}
+    {stage === 6 && <FinalStep workspace={workspace} busy={busy} action={action} />}
+    {stage === 7 && <JuniorWaitStep summary={workspace.juniorSummary} />}
+    {stage === 8 && <ReflectionStep workspace={workspace} busy={busy} action={action} />}
   </div></section>;
 }
 
@@ -364,21 +372,134 @@ function CriteriaAside({ config }: { config: Project4Config }) {
   return <aside className={styles.criteriaAside}><span>우리의 평가 기준</span>{config.criteria.map((item, index) => <p key={item}><b>{index + 1}</b>{item}</p>)}</aside>;
 }
 
+function PersonalFeedbackStep({ config, me, token, workspace, setWorkspace, busy, action }: {
+  config: Project4Config;
+  me: { classId: string; groupId: string; studentId: string; name: string };
+  token: string;
+  workspace: StudentWorkspace;
+  setWorkspace: (workspace: StudentWorkspace) => void;
+  busy: boolean;
+  action: (name: string, payload?: Record<string, unknown>) => Promise<StudentWorkspace | null>;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [review, setReview] = useState<Project4PersonalFeedback | null>(workspace.personalFeedback);
+  const [generating, setGenerating] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState("");
+  const sheetRef = useRef<HTMLDivElement>(null);
+
+  function updateFeedback(id: string, patch: Partial<Project4PersonalFeedbackItem>) {
+    if (!review) return;
+    setReview({
+      ...review,
+      feedbacks: review.feedbacks.map((item) => item.id === id ? { ...item, ...patch } : item),
+    });
+  }
+
+  async function generate() {
+    if (!file) return;
+    setGenerating(true);
+    setError("");
+    try {
+      const pdfData = await fileAsDataUrl(file);
+      const response = await fetch("/api/project4/personal-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, fileName: file.name, pdfData }),
+      });
+      const data = await response.json() as { review?: Project4PersonalFeedback; error?: string };
+      if (!response.ok || !data.review) throw new Error(data.error || "개인 AI 피드백을 만들지 못했습니다.");
+      setReview(data.review);
+      setWorkspace({ ...workspace, personalFeedback: data.review });
+      setFile(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "개인 AI 피드백을 만들지 못했습니다.");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function saveReview() {
+    if (!review) return;
+    const loaded = await action("savePersonalReview", { review });
+    if (loaded?.personalFeedback) setReview(loaded.personalFeedback);
+  }
+
+  async function downloadPdf() {
+    if (!review || !sheetRef.current) return;
+    setDownloading(true);
+    setError("");
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const pages = Array.from(sheetRef.current.querySelectorAll<HTMLElement>("[data-pdf-page]"));
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
+      for (let index = 0; index < pages.length; index += 1) {
+        const canvas = await html2canvas(pages[index], {
+          scale: 2,
+          backgroundColor: "#ffffff",
+          logging: false,
+          useCORS: true,
+        });
+        if (index > 0) pdf.addPage();
+        const ratio = Math.min(190 / canvas.width, 277 / canvas.height);
+        const width = canvas.width * ratio;
+        const height = canvas.height * ratio;
+        pdf.addImage(canvas.toDataURL("image/png"), "PNG", (210 - width) / 2, 10, width, height, undefined, "FAST");
+      }
+      pdf.save(`${me.name}-AI-피드백-검토지-${review.revision}차.pdf`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "PDF를 만들지 못했습니다.");
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  const complete = review?.feedbacks.every((item) => item.decision && item.reason?.trim());
+  return <>
+    <StepTitle number={1} title="내 스크립트의 AI 피드백 검토하기" text="AI 피드백이 언제나 맞는 것은 아닙니다. O/X를 정하고 우리가 배운 근거로 까닭을 써 보세요." icon={<Sparkles />} />
+    <div className={styles.personalFeedbackToolbar}>
+      <label className={styles.filePicker}><Upload size={25} /><div><b>{file?.name || (review ? "새 스크립트 PDF 선택" : "내 스크립트 PDF 선택")}</b><span>3MB 이하 PDF이며, 분석 후 사이트에 원본 파일을 저장하지 않습니다.</span></div><input type="file" accept="application/pdf" onChange={(event: ChangeEvent<HTMLInputElement>) => { const next = event.target.files?.[0] || null; if (next && next.size > 3 * 1024 * 1024) { setError("PDF는 3MB 이하여야 합니다."); return; } setFile(next); }} /></label>
+      <button className={styles.primaryButton} type="button" onClick={generate} disabled={!file || generating}>{generating ? <><Loader2 className={styles.spin} /> 스크립트를 살펴보는 중...</> : <><Sparkles size={16} /> {review ? "새 피드백 다시 받기" : "AI 피드백 받기"}</>}</button>
+      {review && <button className={styles.outlineButton} type="button" onClick={downloadPdf} disabled={downloading}>{downloading ? <Loader2 className={styles.spin} /> : <Download size={16} />} PDF 다운로드</button>}
+    </div>
+    {error && <InlineError text={error} />}
+    {review ? <>
+      <div className={styles.personalFeedbackMeta}><div><b>{review.revision}차 AI 피드백</b><span>{review.fileName}</span></div><small>{new Date(review.generatedAt).toLocaleString("ko-KR")}</small></div>
+      <div className={styles.aiFeedbackList}>{review.feedbacks.map((feedback, index) => <article key={feedback.id}><div className={styles.aiFeedbackHead}><span>{index + 1}</span><div><h3>{feedback.title}</h3><small>관련 기준 {feedback.criterionNumbers.join(", ") || "-"}</small></div></div><p>{feedback.feedback}</p><blockquote><b>스크립트에서 확인한 근거</b>{feedback.evidence}</blockquote><div className={styles.decisionRow}><button type="button" className={feedback.decision === "accept" ? styles.activeYes : ""} onClick={() => updateFeedback(feedback.id, { decision: "accept" })}>O 반영</button><button type="button" className={feedback.decision === "reject" ? styles.activeNo : ""} onClick={() => updateFeedback(feedback.id, { decision: "reject" })}>X 반영하지 않음</button></div><label><span>그렇게 정한 까닭</span><textarea rows={3} value={feedback.reason || ""} onChange={(event) => updateFeedback(feedback.id, { reason: event.target.value })} placeholder="측정 자료, 지구본 실험, 평가 기준을 근거로 써 보세요." /></label></article>)}</div>
+      <div className={styles.personalFeedbackActions}><p>모두 반영할 필요는 없습니다. 판단이 어려우면 지구본이나 측정 자료로 직접 확인하세요.</p><button className={styles.primaryButton} type="button" onClick={saveReview} disabled={busy || !complete}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 내 판단 저장</button></div>
+      <PersonalFeedbackPdf ref={sheetRef} config={config} me={me} review={review} />
+    </> : <div className={styles.empty}>내 스크립트 PDF를 올리면 참고 검토지 형식의 AI 피드백 5개가 여기에 표시됩니다.</div>}
+  </>;
+}
+
+function PersonalFeedbackPdf({ ref, config, me, review }: {
+  ref: React.RefObject<HTMLDivElement | null>;
+  config: Project4Config;
+  me: { classId: string; groupId: string; name: string };
+  review: Project4PersonalFeedback;
+}) {
+  const pageGroups = [review.feedbacks.slice(0, 3), review.feedbacks.slice(3)];
+  return <div className={styles.pdfDocument} ref={ref} aria-hidden="true">{pageGroups.map((feedbacks, pageIndex) => <section className={styles.pdfPage} data-pdf-page key={pageIndex}><header><small>PROJECT 4 · SECRETS OF THE SEASONS</small><h1>AI 피드백 검토지</h1><p>고친 대본에 대한 AI 피드백 - 무엇을 반영할지 내가 정합니다.</p></header><div className={styles.pdfIdentity}><b>{classLabel(config, me.classId)} · {groupLabel(config, me.groupId)}</b><span>이름 {me.name}</span><span>{review.revision}차 · {review.fileName}</span></div>{pageIndex === 0 && <div className={styles.pdfGuide}><b>판단 기준</b><p>① 우리가 측정하거나 지구본으로 확인한 것과 맞는가?</p><p>② 우리가 만든 평가 기준(루브릭)에 맞는가?</p></div>}<div className={styles.pdfFeedbacks}>{feedbacks.map((feedback, localIndex) => { const index = pageIndex === 0 ? localIndex : localIndex + 3; return <article key={feedback.id}><div><b>{index + 1}</b><h2>{feedback.title}</h2><span>관련 기준 {feedback.criterionNumbers.join(", ") || "-"}</span></div><p>{feedback.feedback}</p><blockquote>{feedback.evidence}</blockquote><div className={styles.pdfDecision}><b>판단</b><span>{feedback.decision === "accept" ? "O 반영" : feedback.decision === "reject" ? "X 반영하지 않음" : "O / X"}</span></div><div className={styles.pdfReason}><b>그렇게 정한 까닭</b><p>{feedback.reason || " "}</p></div></article>; })}</div><footer><b>모두 반영할 필요는 없습니다.</b><span>판단이 어려우면 측정 자료와 지구본 실험으로 직접 확인해 보세요.</span><small>{pageIndex + 1} / {pageGroups.length}</small></footer></section>)}</div>;
+}
+
 function PeerStep({ config, group, me, workspace, busy, action }: { config: Project4Config; group?: Project4Config["groups"][number]; me: { studentId: string }; workspace: StudentWorkspace; busy: boolean; action: (name: string, payload?: Record<string, unknown>) => Promise<StudentWorkspace | null> }) {
   const targets = group?.students.filter((item) => item.id !== me.studentId) || [];
   const [targetId, setTargetId] = useState(targets.find((item) => !workspace.submittedTargetIds.includes(item.id))?.id || targets[0]?.id || "");
   const [good, setGood] = useState(""); const [blocked, setBlocked] = useState("");
   async function submit(event: FormEvent) { event.preventDefault(); const next = await action("submitPeer", { targetId, good, blocked }); if (next) { setGood(""); setBlocked(""); const nextTarget = targets.find((item) => !next.submittedTargetIds.includes(item.id)); if (nextTarget) setTargetId(nextTarget.id); } }
-  return <><StepTitle number={1} title="모둠 친구의 설명 돌아보기" text="영상은 패들렛에서 보고, 모둠원 전원을 한 명씩 평가해 주세요. 점수는 매기지 않습니다." icon={<Users />} /><div className={styles.twoColumn}><form className={styles.taskCard} onSubmit={submit}><label><span>평가할 친구</span><select value={targetId} onChange={(event) => setTargetId(event.target.value)}>{targets.map((item) => <option key={item.id} value={item.id}>{item.name} {workspace.submittedTargetIds.includes(item.id) ? "· 완료" : ""}</option>)}</select></label><label><span>이 설명에서 가장 잘 전달된 부분은 무엇인가요?</span><textarea rows={4} value={good} onChange={(event) => setGood(event.target.value)} required /></label><label><span>어느 부분에서 이해가 막혔나요? 평가 기준 번호를 들어 써 주세요.</span><textarea rows={5} value={blocked} onChange={(event) => setBlocked(event.target.value)} placeholder="예: 3번에서 남중 고도까지는 알겠는데 왜 더워지는지가 빠졌어." required /></label><button className={styles.primaryButton} disabled={busy || !targetId}>{busy ? <Loader2 className={styles.spin} /> : <Send size={16} />} 익명 평가 저장</button><p className={styles.helper}>친구 화면에는 내 이름이 나오지 않지만, 선생님은 평가자를 확인할 수 있습니다.</p></form><CriteriaAside config={config} /></div></>;
+  return <><StepTitle number={2} title="모둠 친구의 설명 돌아보기" text="영상은 패들렛에서 보고, 모둠원 전원을 한 명씩 평가해 주세요. 점수는 매기지 않습니다." icon={<Users />} /><div className={styles.twoColumn}><form className={styles.taskCard} onSubmit={submit}><label><span>평가할 친구</span><select value={targetId} onChange={(event) => setTargetId(event.target.value)}>{targets.map((item) => <option key={item.id} value={item.id}>{item.name} {workspace.submittedTargetIds.includes(item.id) ? "· 완료" : ""}</option>)}</select></label><label><span>이 설명에서 가장 잘 전달된 부분은 무엇인가요?</span><textarea rows={4} value={good} onChange={(event) => setGood(event.target.value)} required /></label><label><span>어느 부분에서 이해가 막혔나요? 평가 기준 번호를 들어 써 주세요.</span><textarea rows={5} value={blocked} onChange={(event) => setBlocked(event.target.value)} placeholder="예: 3번에서 남중 고도까지는 알겠는데 왜 더워지는지가 빠졌어." required /></label><button className={styles.primaryButton} disabled={busy || !targetId}>{busy ? <Loader2 className={styles.spin} /> : <Send size={16} />} 익명 평가 저장</button><p className={styles.helper}>친구 화면에는 내 이름이 나오지 않지만, 선생님은 평가자를 확인할 수 있습니다.</p></form><CriteriaAside config={config} /></div></>;
 }
 
 function ReceivedStep({ workspace }: { workspace: StudentWorkspace }) {
-  return <><StepTitle number={2} title="친구들이 남긴 말 확인하기" text="여러 사람이 같은 곳을 짚었다면 그 부분부터 고쳐 보세요. 작성자 이름은 표시되지 않습니다." icon={<MessageSquareText />} />{workspace.received.length === 0 ? <div className={styles.empty}>아직 내가 받은 평가가 없습니다.</div> : <div className={styles.feedbackColumns}><section><h3>잘 전달된 점</h3>{workspace.received.map((item, index) => <blockquote key={item.id}><b>의견 {index + 1}</b>{item.good}</blockquote>)}</section><section><h3>이해되지 않은 점</h3>{workspace.received.map((item, index) => <blockquote key={item.id}><b>의견 {index + 1}</b>{item.blocked}</blockquote>)}</section></div>}</>;
+  return <><StepTitle number={3} title="친구들이 남긴 말 확인하기" text="여러 사람이 같은 곳을 짚었다면 그 부분부터 고쳐 보세요. 작성자 이름은 표시되지 않습니다." icon={<MessageSquareText />} />{workspace.received.length === 0 ? <div className={styles.empty}>아직 내가 받은 평가가 없습니다.</div> : <div className={styles.feedbackColumns}><section><h3>잘 전달된 점</h3>{workspace.received.map((item, index) => <blockquote key={item.id}><b>의견 {index + 1}</b>{item.good}</blockquote>)}</section><section><h3>이해되지 않은 점</h3>{workspace.received.map((item, index) => <blockquote key={item.id}><b>의견 {index + 1}</b>{item.blocked}</blockquote>)}</section></div>}</>;
 }
 
 function RepresentativeStep({ group, workspace, busy, action }: { group?: Project4Config["groups"][number]; workspace: StudentWorkspace; busy: boolean; action: (name: string, payload?: Record<string, unknown>) => Promise<StudentWorkspace | null> }) {
   const [selectedStudentId, setSelected] = useState(workspace.representative?.selectedStudentId || ""); const [reason, setReason] = useState(workspace.representative?.reason || "");
-  return <><StepTitle number={3} title="함께 보고 싶은 설명 고르기" text="가장 잘한 작품을 뽑는 것이 아니라, 다른 모둠과 함께 보고 싶은 설명 한 편을 고릅니다." icon={<BookOpenCheck />} /><form className={styles.taskCard} onSubmit={(event) => { event.preventDefault(); void action("saveRepresentative", { selectedStudentId, reason }); }}><label><span>함께 보고 싶은 설명</span><select value={selectedStudentId} onChange={(event) => setSelected(event.target.value)}><option value="">선택</option>{group?.students.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label><span>이 영상을 고른 까닭을 평가 기준 번호를 들어 한 문장으로 써 주세요.</span><textarea rows={4} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="예: 2번 기준처럼 지구본을 돌리며 말해서 따라가기 쉬웠습니다." /></label><button className={styles.primaryButton} disabled={busy || !selectedStudentId || !reason}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 모둠 대표 저장</button>{workspace.representative && <p className={styles.helper}>현재 선택: {workspace.representative.selectedStudentName} 작품</p>}</form></>;
+  return <><StepTitle number={4} title="함께 보고 싶은 설명 고르기" text="가장 잘한 작품을 뽑는 것이 아니라, 다른 모둠과 함께 보고 싶은 설명 한 편을 고릅니다." icon={<BookOpenCheck />} /><form className={styles.taskCard} onSubmit={(event) => { event.preventDefault(); void action("saveRepresentative", { selectedStudentId, reason }); }}><label><span>함께 보고 싶은 설명</span><select value={selectedStudentId} onChange={(event) => setSelected(event.target.value)}><option value="">선택</option>{group?.students.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label><span>이 영상을 고른 까닭을 평가 기준 번호를 들어 한 문장으로 써 주세요.</span><textarea rows={4} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="예: 2번 기준처럼 지구본을 돌리며 말해서 따라가기 쉬웠습니다." /></label><button className={styles.primaryButton} disabled={busy || !selectedStudentId || !reason}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 모둠 대표 저장</button>{workspace.representative && <p className={styles.helper}>현재 선택: {workspace.representative.selectedStudentName} 작품</p>}</form></>;
 }
 
 function AiStep({ token, workspace, setWorkspace, busy, action }: { token: string; workspace: StudentWorkspace; setWorkspace: (workspace: StudentWorkspace) => void; busy: boolean; action: (name: string, payload?: Record<string, unknown>) => Promise<StudentWorkspace | null> }) {
@@ -386,24 +507,24 @@ function AiStep({ token, workspace, setWorkspace, busy, action }: { token: strin
   async function generate() { if (!file) return; setGenerating(true); setError(""); try { const pdfData = await fileAsDataUrl(file); const response = await fetch("/api/project4/claude", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, fileName: file.name, pdfData }) }); const data = await response.json() as { feedbacks?: Project4AiFeedback[]; error?: string }; if (!response.ok || !data.feedbacks) throw new Error(data.error || "AI 피드백을 만들지 못했습니다."); const next: Project4AiReview = { classId: "", groupId: "", fileName: file.name, feedbacks: data.feedbacks.map((item, index) => ({ ...item, id: item.id || `feedback-${index + 1}` })), wrongFeedback: "", submittedById: "", submittedByName: "", updatedAt: new Date().toISOString() }; setReview(next); const loaded = await action("saveAiReview", { review: next }); if (loaded) setWorkspace(loaded); } catch (caught) { setError(caught instanceof Error ? caught.message : "AI 피드백을 만들지 못했습니다."); } finally { setGenerating(false); } }
   function updateFeedback(id: string, patch: Partial<Project4AiFeedback>) { if (!review) return; setReview({ ...review, feedbacks: review.feedbacks.map((item) => item.id === id ? { ...item, ...patch } : item) }); }
   const complete = review?.feedbacks.every((item) => typeof item.accept === "boolean" && item.basis && item.reason?.trim());
-  return <><StepTitle number={4} title="AI 피드백을 검토하고 판단하기" text="AI가 언제나 맞는 것은 아닙니다. 무엇을 반영할지 우리가 배운 근거로 결정하세요." icon={<Sparkles />} />{!review ? <div className={styles.taskCard}><label className={styles.filePicker}><Upload size={25} /><div><b>{file?.name || "모둠 대본 PDF 선택"}</b><span>PDF를 올리면 점수 없이 수정 피드백 5개를 만듭니다.</span></div><input type="file" accept="application/pdf" onChange={(event: ChangeEvent<HTMLInputElement>) => { const next = event.target.files?.[0] || null; if (next && next.size > 12 * 1024 * 1024) { setError("PDF는 12MB 이하여야 합니다."); return; } setFile(next); }} /></label>{error && <InlineError text={error} />}<button className={styles.primaryButton} type="button" onClick={generate} disabled={!file || generating}>{generating ? <><Loader2 className={styles.spin} /> 과학 내용을 확인하는 중...</> : <><Sparkles size={16} /> AI 피드백 5개 만들기</>}</button></div> : <div className={styles.aiFeedbackList}>{review.feedbacks.map((feedback, index) => <article key={feedback.id}><div className={styles.aiFeedbackHead}><span>{index + 1}</span><div><h3>{feedback.title}</h3><small>관련 기준 {feedback.criterionNumbers?.join(", ") || "-"}</small></div></div><p>{feedback.feedback}</p><blockquote>{feedback.evidence}</blockquote><div className={styles.decisionRow}><button type="button" className={feedback.accept === true ? styles.activeYes : ""} onClick={() => updateFeedback(feedback.id, { accept: true })}>O 반영</button><button type="button" className={feedback.accept === false ? styles.activeNo : ""} onClick={() => updateFeedback(feedback.id, { accept: false })}>X 반영하지 않음</button></div><label><span>무엇을 보고 정했나요?</span><select value={feedback.basis || ""} onChange={(event) => updateFeedback(feedback.id, { basis: event.target.value as Project4AiFeedback["basis"] })}><option value="">근거 선택</option><option value="measurement">① 우리가 측정한 자료</option><option value="experiment">② 지구본 실험 결과</option><option value="criteria">③ 우리가 만든 평가 기준</option><option value="unsure">④ 잘 모르겠음</option></select></label><label><span>그렇게 정한 까닭</span><textarea rows={3} value={feedback.reason || ""} onChange={(event) => updateFeedback(feedback.id, { reason: event.target.value })} /></label></article>)}<label className={styles.wrongFeedback}><span>다섯 개 중 잘못된 피드백이 있었다면 몇 번이라고 생각하나요? 그렇게 본 까닭은?</span><textarea rows={4} value={review.wrongFeedback} onChange={(event) => setReview({ ...review, wrongFeedback: event.target.value })} /></label><button className={styles.primaryButton} disabled={busy || !complete} onClick={() => action("saveAiReview", { review })}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 판단 결과 저장</button></div>}</>;
+  return <><StepTitle number={5} title="AI 피드백을 검토하고 판단하기" text="AI가 언제나 맞는 것은 아닙니다. 무엇을 반영할지 우리가 배운 근거로 결정하세요." icon={<Sparkles />} />{!review ? <div className={styles.taskCard}><label className={styles.filePicker}><Upload size={25} /><div><b>{file?.name || "모둠 대본 PDF 선택"}</b><span>PDF를 올리면 점수 없이 수정 피드백 5개를 만듭니다.</span></div><input type="file" accept="application/pdf" onChange={(event: ChangeEvent<HTMLInputElement>) => { const next = event.target.files?.[0] || null; if (next && next.size > 12 * 1024 * 1024) { setError("PDF는 12MB 이하여야 합니다."); return; } setFile(next); }} /></label>{error && <InlineError text={error} />}<button className={styles.primaryButton} type="button" onClick={generate} disabled={!file || generating}>{generating ? <><Loader2 className={styles.spin} /> 과학 내용을 확인하는 중...</> : <><Sparkles size={16} /> AI 피드백 5개 만들기</>}</button></div> : <div className={styles.aiFeedbackList}>{review.feedbacks.map((feedback, index) => <article key={feedback.id}><div className={styles.aiFeedbackHead}><span>{index + 1}</span><div><h3>{feedback.title}</h3><small>관련 기준 {feedback.criterionNumbers?.join(", ") || "-"}</small></div></div><p>{feedback.feedback}</p><blockquote>{feedback.evidence}</blockquote><div className={styles.decisionRow}><button type="button" className={feedback.accept === true ? styles.activeYes : ""} onClick={() => updateFeedback(feedback.id, { accept: true })}>O 반영</button><button type="button" className={feedback.accept === false ? styles.activeNo : ""} onClick={() => updateFeedback(feedback.id, { accept: false })}>X 반영하지 않음</button></div><label><span>무엇을 보고 정했나요?</span><select value={feedback.basis || ""} onChange={(event) => updateFeedback(feedback.id, { basis: event.target.value as Project4AiFeedback["basis"] })}><option value="">근거 선택</option><option value="measurement">① 우리가 측정한 자료</option><option value="experiment">② 지구본 실험 결과</option><option value="criteria">③ 우리가 만든 평가 기준</option><option value="unsure">④ 잘 모르겠음</option></select></label><label><span>그렇게 정한 까닭</span><textarea rows={3} value={feedback.reason || ""} onChange={(event) => updateFeedback(feedback.id, { reason: event.target.value })} /></label></article>)}<label className={styles.wrongFeedback}><span>다섯 개 중 잘못된 피드백이 있었다면 몇 번이라고 생각하나요? 그렇게 본 까닭은?</span><textarea rows={4} value={review.wrongFeedback} onChange={(event) => setReview({ ...review, wrongFeedback: event.target.value })} /></label><button className={styles.primaryButton} disabled={busy || !complete} onClick={() => action("saveAiReview", { review })}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 판단 결과 저장</button></div>}</>;
 }
 
 function FinalStep({ workspace, busy, action }: { workspace: StudentWorkspace; busy: boolean; action: (name: string, payload?: Record<string, unknown>) => Promise<StudentWorkspace | null> }) {
   const [mode, setMode] = useState<"text" | "pdf">(workspace.final?.mode || "text"); const [text, setText] = useState(workspace.final?.text || ""); const [file, setFile] = useState<File | null>(null); const [error, setError] = useState("");
   async function saveFinal() { setError(""); try { const fileData = mode === "pdf" ? (file ? await fileAsDataUrl(file) : workspace.final?.fileData) : undefined; await action("saveFinal", { final: { mode, text, fileName: file?.name || workspace.final?.fileName || "", fileData } }); } catch (caught) { setError(caught instanceof Error ? caught.message : "최종 대본을 저장하지 못했습니다."); } }
-  return <><StepTitle number={5} title="최종 대본 완성하기" text="반영하기로 한 것만 고쳐 최종 대본을 완성하세요. 남반구 설명이 들어갔는지도 확인합니다." icon={<FileText />} /><div className={styles.taskCard}><div className={styles.segment}><button className={mode === "text" ? styles.active : ""} onClick={() => setMode("text")}>화면에 직접 작성</button><button className={mode === "pdf" ? styles.active : ""} onClick={() => setMode("pdf")}>PDF 업로드</button></div>{mode === "text" ? <label><span>고친 최종 대본</span><textarea rows={14} value={text} onChange={(event) => setText(event.target.value)} /></label> : <label className={styles.filePicker}><Upload size={25} /><div><b>{file?.name || workspace.final?.fileName || "최종 대본 PDF 선택"}</b><span>고친 부분을 다른 색으로 표시하면 변화가 잘 보입니다.</span></div><input type="file" accept="application/pdf" onChange={(event) => { const next = event.target.files?.[0] || null; if (next && next.size > 10 * 1024 * 1024) { setError("PDF는 10MB 이하여야 합니다."); return; } setFile(next); }} /></label>}{error && <InlineError text={error} />}<button className={styles.primaryButton} onClick={saveFinal} disabled={busy || (mode === "text" ? !text.trim() : !file && !workspace.final?.fileData)}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 최종 대본 저장</button>{workspace.final && <p className={styles.helper}>최종 대본이 저장되어 있습니다. 다시 저장하면 최신 내용으로 바뀝니다.</p>}</div></>;
+  return <><StepTitle number={6} title="최종 대본 완성하기" text="반영하기로 한 것만 고쳐 최종 대본을 완성하세요. 남반구 설명이 들어갔는지도 확인합니다." icon={<FileText />} /><div className={styles.taskCard}><div className={styles.segment}><button className={mode === "text" ? styles.active : ""} onClick={() => setMode("text")}>화면에 직접 작성</button><button className={mode === "pdf" ? styles.active : ""} onClick={() => setMode("pdf")}>PDF 업로드</button></div>{mode === "text" ? <label><span>고친 최종 대본</span><textarea rows={14} value={text} onChange={(event) => setText(event.target.value)} /></label> : <label className={styles.filePicker}><Upload size={25} /><div><b>{file?.name || workspace.final?.fileName || "최종 대본 PDF 선택"}</b><span>고친 부분을 다른 색으로 표시하면 변화가 잘 보입니다.</span></div><input type="file" accept="application/pdf" onChange={(event) => { const next = event.target.files?.[0] || null; if (next && next.size > 10 * 1024 * 1024) { setError("PDF는 10MB 이하여야 합니다."); return; } setFile(next); }} /></label>}{error && <InlineError text={error} />}<button className={styles.primaryButton} onClick={saveFinal} disabled={busy || (mode === "text" ? !text.trim() : !file && !workspace.final?.fileData)}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 최종 대본 저장</button>{workspace.final && <p className={styles.helper}>최종 대본이 저장되어 있습니다. 다시 저장하면 최신 내용으로 바뀝니다.</p>}</div></>;
 }
 
 const partLabels: Record<string, string> = { measurement: "측정한 숫자", globe: "지구본으로 보여 준 부분", australia: "호주 이야기", voice: "목소리와 말하는 속도" };
 
 function JuniorWaitStep({ summary }: { summary: StudentWorkspace["juniorSummary"] }) {
-  return <><StepTitle number={6} title="후배들의 이해 확인 기다리기" text="5학년 후배들은 패들렛에서 대표 영상을 보고 이해한 정도와 질문을 남깁니다." icon={<School />} /><div className={styles.summaryCard}><strong>{summary.total}명</strong><span>우리 모둠 영상을 평가한 후배</span><div><p>잘 이해했어요 <b>{summary.understanding.well}명</b></p><p>조금 알 것 같아요 <b>{summary.understanding.some}명</b></p><p>잘 모르겠어요 <b>{summary.understanding.little}명</b></p></div></div></>;
+  return <><StepTitle number={7} title="후배들의 이해 확인 기다리기" text="5학년 후배들은 패들렛에서 대표 영상을 보고 이해한 정도와 질문을 남깁니다." icon={<School />} /><div className={styles.summaryCard}><strong>{summary.total}명</strong><span>우리 모둠 영상을 평가한 후배</span><div><p>잘 이해했어요 <b>{summary.understanding.well}명</b></p><p>조금 알 것 같아요 <b>{summary.understanding.some}명</b></p><p>잘 모르겠어요 <b>{summary.understanding.little}명</b></p></div></div></>;
 }
 
 function ReflectionStep({ workspace, busy, action }: { workspace: StudentWorkspace; busy: boolean; action: (name: string, payload?: Record<string, unknown>) => Promise<StudentWorkspace | null> }) {
   const saved = workspace.reflection; const [values, setValues] = useState({ responsibility: saved?.responsibility || 2, helpfulFeedback: saved?.helpfulFeedback || 2, revisedFromFeedback: saved?.revisedFromFeedback || 2, changed: saved?.changed || "", nextExplanation: saved?.nextExplanation || "", rejectedAiReason: saved?.rejectedAiReason || "" }); const summary = workspace.juniorSummary;
-  return <><StepTitle number={7} title="결과를 읽고 나의 다음 설명 정하기" text="낮은 결과도 실패가 아니라 어느 부분이 어려웠는지 알려 주는 정보입니다." icon={<BarChart3 />} /><div className={styles.resultOverview}><section><h3>친구들이 본 내 설명</h3>{workspace.received.length ? workspace.received.map((item, index) => <div key={item.id}><b>익명 의견 {index + 1}</b><p><strong>잘 전달된 점</strong>{item.good}</p><p><strong>이해되지 않은 점</strong>{item.blocked}</p></div>) : <p>아직 받은 의견이 없습니다.</p>}</section><section><h3>우리 모둠의 AI 판단</h3>{workspace.aiReview?.feedbacks.length ? workspace.aiReview.feedbacks.map((item, index) => <p key={item.id}><strong>{index + 1}. {item.accept === true ? "반영" : item.accept === false ? "반영하지 않음" : "판단 전"}</strong>{item.title}</p>) : <p>아직 AI 피드백 판단 기록이 없습니다.</p>}</section><section><h3>후배들이 본 우리 모둠 설명</h3><p>{summary.total}명 중 {summary.understanding.well}명이 “잘 이해했어요”를 골랐습니다.</p><div className={styles.miniBars}>{summary.helpfulParts.map((item) => <span key={item.part}><small>{partLabels[item.part]}</small><b>{item.count}명</b></span>)}</div></section><section><h3>후배가 남긴 질문</h3>{summary.questions.length ? summary.questions.map((item, index) => <blockquote key={index}>{item}</blockquote>) : <p>아직 질문이 없습니다.</p>}</section></div><form className={styles.reflectionForm} onSubmit={(event) => { event.preventDefault(); void action("saveReflection", { reflection: values }); }}><h3>나의 자기평가</h3>{[["responsibility", "대본을 만들 때 내 역할을 책임 있게 했다"], ["helpfulFeedback", "친구의 설명에 도움이 되는 피드백을 주었다"], ["revisedFromFeedback", "친구의 피드백을 받아들여 내 설명을 고쳤다"]].map(([key, label]) => <label className={styles.scaleQuestion} key={key}><span>{label}</span><div>{[1, 2, 3].map((score) => <button type="button" className={values[key as keyof typeof values] === score ? styles.active : ""} key={score} onClick={() => setValues({ ...values, [key]: score })}>{score}점</button>)}</div></label>)}<label><span>친구들의 피드백을 보고 내 설명에서 무엇을 고쳤나요?</span><textarea rows={4} value={values.changed} onChange={(event) => setValues({ ...values, changed: event.target.value })} /></label><label><span>후배들의 반응을 보고 다음에 설명한다면 무엇을 다르게 하고 싶나요?</span><textarea rows={4} value={values.nextExplanation} onChange={(event) => setValues({ ...values, nextExplanation: event.target.value })} /></label><label><span>AI 피드백 중 반영하지 않은 것은 무엇이며, 왜 그렇게 정했나요?</span><textarea rows={4} value={values.rejectedAiReason} onChange={(event) => setValues({ ...values, rejectedAiReason: event.target.value })} /></label><button className={styles.primaryButton} disabled={busy || !values.changed || !values.nextExplanation || !values.rejectedAiReason}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 자기평가 저장</button></form></>;
+  return <><StepTitle number={8} title="결과를 읽고 나의 다음 설명 정하기" text="낮은 결과도 실패가 아니라 어느 부분이 어려웠는지 알려 주는 정보입니다." icon={<BarChart3 />} /><div className={styles.resultOverview}><section><h3>친구들이 본 내 설명</h3>{workspace.received.length ? workspace.received.map((item, index) => <div key={item.id}><b>익명 의견 {index + 1}</b><p><strong>잘 전달된 점</strong>{item.good}</p><p><strong>이해되지 않은 점</strong>{item.blocked}</p></div>) : <p>아직 받은 의견이 없습니다.</p>}</section><section><h3>우리 모둠의 AI 판단</h3>{workspace.aiReview?.feedbacks.length ? workspace.aiReview.feedbacks.map((item, index) => <p key={item.id}><strong>{index + 1}. {item.accept === true ? "반영" : item.accept === false ? "반영하지 않음" : "판단 전"}</strong>{item.title}</p>) : <p>아직 AI 피드백 판단 기록이 없습니다.</p>}</section><section><h3>후배들이 본 우리 모둠 설명</h3><p>{summary.total}명 중 {summary.understanding.well}명이 “잘 이해했어요”를 골랐습니다.</p><div className={styles.miniBars}>{summary.helpfulParts.map((item) => <span key={item.part}><small>{partLabels[item.part]}</small><b>{item.count}명</b></span>)}</div></section><section><h3>후배가 남긴 질문</h3>{summary.questions.length ? summary.questions.map((item, index) => <blockquote key={index}>{item}</blockquote>) : <p>아직 질문이 없습니다.</p>}</section></div><form className={styles.reflectionForm} onSubmit={(event) => { event.preventDefault(); void action("saveReflection", { reflection: values }); }}><h3>나의 자기평가</h3>{[["responsibility", "대본을 만들 때 내 역할을 책임 있게 했다"], ["helpfulFeedback", "친구의 설명에 도움이 되는 피드백을 주었다"], ["revisedFromFeedback", "친구의 피드백을 받아들여 내 설명을 고쳤다"]].map(([key, label]) => <label className={styles.scaleQuestion} key={key}><span>{label}</span><div>{[1, 2, 3].map((score) => <button type="button" className={values[key as keyof typeof values] === score ? styles.active : ""} key={score} onClick={() => setValues({ ...values, [key]: score })}>{score}점</button>)}</div></label>)}<label><span>친구들의 피드백을 보고 내 설명에서 무엇을 고쳤나요?</span><textarea rows={4} value={values.changed} onChange={(event) => setValues({ ...values, changed: event.target.value })} /></label><label><span>후배들의 반응을 보고 다음에 설명한다면 무엇을 다르게 하고 싶나요?</span><textarea rows={4} value={values.nextExplanation} onChange={(event) => setValues({ ...values, nextExplanation: event.target.value })} /></label><label><span>AI 피드백 중 반영하지 않은 것은 무엇이며, 왜 그렇게 정했나요?</span><textarea rows={4} value={values.rejectedAiReason} onChange={(event) => setValues({ ...values, rejectedAiReason: event.target.value })} /></label><button className={styles.primaryButton} disabled={busy || !values.changed || !values.nextExplanation || !values.rejectedAiReason}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 자기평가 저장</button></form></>;
 }
 
 function JuniorLogin({ config, onBack, onEnter }: { config: Project4Config; onBack: () => void; onEnter: (identity: { name: string; evaluatorClass: string; targetClassId: string; targetGroupId: string }) => Promise<void> }) {

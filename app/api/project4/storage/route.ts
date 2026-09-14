@@ -11,6 +11,7 @@ import {
   getProject4Final,
   getProject4GroupPeers,
   getProject4Junior,
+  getProject4PersonalFeedback,
   getProject4Reflection,
   getProject4Representative,
   getProject4TeacherData,
@@ -19,6 +20,7 @@ import {
   saveProject4Final,
   saveProject4Junior,
   saveProject4Peer,
+  saveProject4PersonalFeedback,
   saveProject4Reflection,
   saveProject4Representative,
 } from "@/lib/server/project4-store";
@@ -63,6 +65,22 @@ function requireStage(config: Project4Config, stage: number) {
   }
 }
 
+function studentPersonalFeedback(value: Awaited<ReturnType<typeof getProject4PersonalFeedback>>) {
+  if (!value) return null;
+  return {
+    ...value,
+    feedbacks: value.feedbacks.map((feedback) => ({
+      id: feedback.id,
+      title: feedback.title,
+      feedback: feedback.feedback,
+      evidence: feedback.evidence,
+      criterionNumbers: feedback.criterionNumbers,
+      decision: feedback.decision,
+      reason: feedback.reason,
+    })),
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json() as Record<string, unknown>;
@@ -101,7 +119,7 @@ export async function POST(request: Request) {
 
     if (action === "enterJunior") {
       const config = await getProject4Config();
-      requireStage(config, 6);
+      requireStage(config, 7);
       const classId = text(body.targetClassId, 100);
       const groupId = text(body.targetGroupId, 100);
       const name = text(body.name, 100);
@@ -138,7 +156,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (action === "studentWorkspace" || action === "submitPeer" || action === "saveRepresentative" || action === "saveAiReview" || action === "saveFinal" || action === "saveReflection") {
+    if (action === "studentWorkspace" || action === "savePersonalReview" || action === "submitPeer" || action === "saveRepresentative" || action === "saveAiReview" || action === "saveFinal" || action === "saveReflection") {
       const access = readProject4Token(authToken, "student");
       const config = await getProject4Config();
       const found = studentFromConfig(config, access.classId || "", access.groupId || "", access.studentId || "");
@@ -148,13 +166,38 @@ export async function POST(request: Request) {
       const studentId = access.studentId as string;
 
       const actionStages: Record<string, number> = {
-        submitPeer: 1,
-        saveRepresentative: 3,
-        saveAiReview: 4,
-        saveFinal: 5,
-        saveReflection: 7,
+        savePersonalReview: 1,
+        submitPeer: 2,
+        saveRepresentative: 4,
+        saveAiReview: 5,
+        saveFinal: 6,
+        saveReflection: 8,
       };
       if (actionStages[action]) requireStage(config, actionStages[action]);
+
+      if (action === "savePersonalReview") {
+        const existing = await getProject4PersonalFeedback(classId, groupId, studentId);
+        if (!existing) throw new Error("먼저 스크립트를 올려 AI 피드백을 받아 주세요.");
+        const submittedFeedbacks = Array.isArray((body.review as { feedbacks?: unknown[] } | undefined)?.feedbacks)
+          ? (body.review as { feedbacks: Array<Record<string, unknown>> }).feedbacks
+          : [];
+        const submittedById = new Map(submittedFeedbacks.map((item) => [text(item.id, 100), item]));
+        await saveProject4PersonalFeedback({
+          ...existing,
+          feedbacks: existing.feedbacks.map((feedback) => {
+            const submitted = submittedById.get(feedback.id);
+            const decision = submitted?.decision === "accept" || submitted?.decision === "reject"
+              ? submitted.decision
+              : undefined;
+            return {
+              ...feedback,
+              decision,
+              reason: text(submitted?.reason),
+            };
+          }),
+          updatedAt: new Date().toISOString(),
+        });
+      }
 
       if (action === "submitPeer") {
         const targetId = text(body.targetId, 100);
@@ -245,7 +288,8 @@ export async function POST(request: Request) {
         });
       }
 
-      const [peers, representative, aiReview, final, juniors, reflection] = await Promise.all([
+      const [personalFeedback, peers, representative, aiReview, final, juniors, reflection] = await Promise.all([
+        getProject4PersonalFeedback(classId, groupId, studentId),
         getProject4GroupPeers(classId, groupId),
         getProject4Representative(classId, groupId),
         getProject4AiReview(classId, groupId),
@@ -257,6 +301,7 @@ export async function POST(request: Request) {
         config: studentConfig(config, classId, groupId),
         me: { classId, groupId, studentId, name: found.student.name },
         workspace: {
+          personalFeedback: studentPersonalFeedback(personalFeedback),
           submittedTargetIds: peers.filter((item) => item.evaluatorId === studentId).map((item) => item.targetId),
           received: peers.filter((item) => item.targetId === studentId).map((item) => ({
             id: item.id,
@@ -292,7 +337,7 @@ export async function POST(request: Request) {
     if (action === "submitJunior") {
       const access = readProject4Token(authToken, "junior");
       const config = await getProject4Config();
-      requireStage(config, 6);
+      requireStage(config, 7);
       const understanding = body.understanding;
       if (understanding !== "well" && understanding !== "some" && understanding !== "little") {
         throw new Error("이해한 정도를 선택해 주세요.");
