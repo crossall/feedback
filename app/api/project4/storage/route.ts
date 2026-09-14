@@ -47,13 +47,6 @@ function groupFromConfig(config: Project4Config, classId: string, groupId: strin
   return config.groups.find((item) => item.id === groupId && item.classId === classId) || null;
 }
 
-function publicConfig(config: Project4Config): Project4Config {
-  return {
-    ...config,
-    groups: config.groups.map((group) => ({ ...group, students: [] })),
-  };
-}
-
 function studentConfig(config: Project4Config, classId: string, groupId: string): Project4Config {
   return {
     ...config,
@@ -76,7 +69,7 @@ export async function POST(request: Request) {
     const action = text(body.action, 50);
 
     if (action === "getConfig") {
-      return NextResponse.json({ config: publicConfig(await getProject4Config()) });
+      return NextResponse.json({ config: await getProject4Config() });
     }
 
     if (action === "teacherLogin") {
@@ -90,12 +83,8 @@ export async function POST(request: Request) {
       const config = await getProject4Config();
       const classId = text(body.classId, 100);
       const groupId = text(body.groupId, 100);
-      const studentName = text(body.studentName, 100);
-      const group = groupFromConfig(config, classId, groupId);
-      const student = group?.students.find(
-        (item) => item.name.localeCompare(studentName, "ko", { sensitivity: "base" }) === 0,
-      );
-      const found = group && student ? { group, student } : null;
+      const studentId = text(body.studentId, 100);
+      const found = studentFromConfig(config, classId, groupId, studentId);
       if (!found) {
         return NextResponse.json({ error: "반, 모둠, 이름을 다시 확인해 주세요." }, { status: 400 });
       }
