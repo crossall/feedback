@@ -1,46 +1,81 @@
 import { NextResponse } from "next/server";
 import { readProject4Token } from "@/lib/server/project4-auth";
-import { getProject4Config } from "@/lib/server/project4-store";
+import {
+  getProject4AiReview,
+  getProject4Config,
+  saveProject4AiReview,
+} from "@/lib/server/project4-store";
 import { getTeacherApiKeys } from "@/lib/server/teacher-store";
+import type { Project4AiFeedback, Project4AiReview } from "@/lib/project4";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const WEB_SEARCH_TOOL = {
-  type: "web_search_20250305",
-  name: "web_search",
-  max_uses: 4,
-  user_location: {
-    type: "approximate",
-    country: "KR",
-    timezone: "Asia/Seoul",
-  },
+type GeneratedFeedback = {
+  title?: unknown;
+  feedback?: unknown;
+  evidence?: unknown;
+  criterionNumbers?: unknown;
+  isValid?: unknown;
+  teacherExplanation?: unknown;
 };
+
+function cleanText(value: unknown, max = 5000) {
+  return String(value ?? "").trim().slice(0, max);
+}
+
+function studentView(value: Project4AiReview): Project4AiReview {
+  return {
+    ...value,
+    submittedById: "",
+    submittedByName: "",
+    feedbacks: value.feedbacks.map((item) => ({
+      id: item.id,
+      title: item.title,
+      feedback: item.feedback,
+      evidence: item.evidence,
+      criterionNumbers: item.criterionNumbers,
+      accept: item.accept,
+      basis: item.basis,
+      reason: item.reason,
+    })),
+  };
+}
+
+function parseFeedbacks(raw: string): GeneratedFeedback[] {
+  const cleaned = raw.replace(/```json|```/gi, "").trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start < 0 || end <= start) throw new Error("AI 피드백 형식을 읽지 못했습니다.");
+  const parsed = JSON.parse(cleaned.slice(start, end + 1)) as { feedbacks?: GeneratedFeedback[] };
+  if (!Array.isArray(parsed.feedbacks) || parsed.feedbacks.length !== 5) {
+    throw new Error("AI 피드백 5개를 만들지 못했습니다. 다시 요청해 주세요.");
+  }
+  return parsed.feedbacks;
+}
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json() as {
-      token?: string;
-      fileName?: string;
-      pdfData?: string;
-    };
+    const body = await request.json() as { token?: string; fileName?: string; pdfData?: string };
     const access = readProject4Token(body.token || "", "student");
     const config = await getProject4Config();
-    if (config.openStage < 5) {
-      return NextResponse.json({ error: "5단계는 아직 교사가 열지 않았습니다." }, { status: 400 });
+    if (config.openStage < 4) {
+      return NextResponse.json({ error: "4단계는 아직 교사가 열지 않았습니다." }, { status: 400 });
     }
+
     const group = config.groups.find((item) => item.id === access.groupId && item.classId === access.classId);
     const student = group?.students.find((item) => item.id === access.studentId);
     if (!group || !student) {
       return NextResponse.json({ error: "학생 정보를 다시 확인해 주세요." }, { status: 400 });
     }
 
-    const pdfData = String(body.pdfData || "").replace(/^data:application\/pdf;base64,/, "");
-    if (!pdfData) {
-      return NextResponse.json({ error: "모둠 대본 PDF를 선택해 주세요." }, { status: 400 });
+    const rawPdfData = String(body.pdfData || "");
+    if (rawPdfData.length > 4_100_000) {
+      return NextResponse.json({ error: "PDF는 3MB 이하여야 합니다." }, { status: 413 });
     }
-    if (pdfData.length > 18_000_000) {
-      return NextResponse.json({ error: "PDF는 12MB 이하여야 합니다." }, { status: 413 });
+    const pdfData = rawPdfData.replace(/^data:application\/pdf;base64,/, "");
+    if (!pdfData) {
+      return NextResponse.json({ error: "모둠 스크립트 PDF를 선택해 주세요." }, { status: 400 });
     }
 
     const apiKeys = await getTeacherApiKeys("4523");
@@ -53,81 +88,67 @@ export async function POST(request: Request) {
     }
 
     const criteriaText = config.criteria.map((item, index) => `${index + 1}. ${item}`).join("\n");
-    const prompt = `당신은 초등학교 6학년 과학 프로젝트의 피드백 조력자입니다.
+    const prompt = `당신은 초등학교 6학년 과학 수업에서 AI 피드백을 비판적으로 검토하는 활동지를 만드는 조력자입니다.
 
 [프로젝트]
 ${config.title}
 ${config.description}
 
-[학생이 만든 평가 기준]
+[평가 기준]
 ${criteriaText}
 
-첨부한 PDF는 5학년 후배에게 '계절이 바뀌는 까닭'을 설명할 영상 대본입니다.
-점수나 등급을 매기지 말고, 대본을 더 정확하고 이해하기 쉽게 고칠 수 있는 피드백을 정확히 5개 작성하세요.
+첨부한 PDF는 한 모둠이 작성한 '계절이 바뀌는 까닭' 설명 스크립트입니다.
+학생들이 AI를 무조건 믿지 않고 O/X와 근거를 판단하도록, 그럴듯한 AI 피드백을 정확히 5개 만드세요.
 
-반드시 확인할 과학 내용:
-- 계절 변화의 주된 원인은 지구와 태양 사이 거리 변화가 아니라, 지구 자전축이 기울어진 채 태양 주위를 공전하기 때문입니다.
-- 계절에 따라 태양의 남중 고도, 낮의 길이, 일정한 면적이 받는 태양 에너지가 달라지는 관계를 정확히 확인하세요.
-- 북반구와 남반구의 계절이 반대인 까닭을 확인하세요.
-- 학생의 측정 자료나 지구본·전등 실험에 PDF에서 확인되지 않는 내용을 지어내지 마세요.
-- 확실하지 않은 사실은 신뢰할 수 있는 자료로 확인하고, 학생이 이해할 수 있는 쉬운 말로 설명하세요.
+구성 규칙:
+- 5개 중 정확히 2개는 스크립트를 실제로 개선하는 타당한 피드백이어야 합니다.
+- 정확히 2개는 과학 개념이 틀린 피드백이어야 합니다.
+- 정확히 1개는 과학적으로 틀리지는 않지만 평가 기준과 충돌하거나 스크립트의 좋은 강점을 없애는 피드백이어야 합니다.
+- 학생이 문장만 보고 정답을 바로 눈치채지 않도록 모두 자연스럽고 구체적으로 씁니다.
+- 피드백에는 점수나 등급을 넣지 않습니다.
+- 근거는 스크립트의 실제 표현을 짧게 인용하거나 정확하게 요약합니다.
+- 계절 변화의 주된 원인은 지구가 자전축이 기울어진 채 태양 주위를 공전하는 것이며, 지구와 태양 사이의 거리 변화가 아닙니다.
+- 자전은 낮과 밤, 공전과 자전축 기울기는 계절 변화와 관련됩니다.
+- 남반구도 햇빛을 받으며, 북반구와 같은 시기에 태양 고도와 에너지 수광 조건이 반대입니다.
+- isValid와 teacherExplanation은 교사에게만 표시됩니다.
 
-각 피드백에는 제목, 고칠 내용, PDF에서 찾은 근거, 관련 평가 기준 번호를 포함하세요.
-응답은 설명 없이 다음 JSON 형식만 사용하세요.
+설명 없이 아래 JSON 형식만 출력하세요.
 {
   "feedbacks": [
     {
-      "id": "feedback-1",
       "title": "짧은 제목",
-      "feedback": "구체적인 수정 제안",
-      "evidence": "대본에서 확인한 근거",
-      "criterionNumbers": [1, 3]
+      "feedback": "학생에게 보여 줄 구체적인 AI 피드백",
+      "evidence": "스크립트에서 확인한 근거",
+      "criterionNumbers": [1, 3],
+      "isValid": true,
+      "teacherExplanation": "교사용 정답 및 해설"
     }
   ]
 }`;
 
-    const payload = {
-      model: "claude-opus-4-8",
-      max_tokens: 4096,
-      tools: [WEB_SEARCH_TOOL],
-      messages: [{
-        role: "user",
-        content: [
-          {
-            type: "document",
-            source: {
-              type: "base64",
-              media_type: "application/pdf",
-              data: pdfData,
-            },
-          },
-          { type: "text", text: prompt },
-        ],
-      }],
-    };
-
-    let response = await fetch("https://api.anthropic.com/v1/messages", {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        model: "claude-opus-4-8",
+        max_tokens: 4096,
+        messages: [{
+          role: "user",
+          content: [
+            {
+              type: "document",
+              source: { type: "base64", media_type: "application/pdf", data: pdfData },
+            },
+            { type: "text", text: prompt },
+          ],
+        }],
+      }),
     });
-    let data = await response.json();
-    if (!response.ok && data?.error?.type === "invalid_request_error") {
-      response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ...payload, tools: undefined }),
-      });
-      data = await response.json();
-    }
+    const data = await response.json();
     if (!response.ok) {
       return NextResponse.json(
         { error: data?.error?.message || "Claude 요청에 실패했습니다." },
@@ -138,20 +159,50 @@ ${criteriaText}
     const raw = (data.content || [])
       .filter((item: { type?: string; text?: string }) => item.type === "text" && item.text)
       .map((item: { text: string }) => item.text)
-      .join("\n")
-      .replace(/```json|```/gi, "")
-      .trim();
-    const start = raw.indexOf("{");
-    const end = raw.lastIndexOf("}");
-    const parsed = start >= 0 && end > start ? JSON.parse(raw.slice(start, end + 1)) : null;
-    if (!Array.isArray(parsed?.feedbacks) || parsed.feedbacks.length !== 5) {
-      return NextResponse.json({ error: "AI 피드백 형식을 확인하지 못했습니다. 다시 시도해 주세요." }, { status: 502 });
+      .join("\n");
+    const generated = parseFeedbacks(raw);
+    if (generated.filter((item) => item.isValid === true).length !== 2) {
+      throw new Error("AI 피드백의 검토 구성을 확인하지 못했습니다. 다시 요청해 주세요.");
     }
-    return NextResponse.json({ feedbacks: parsed.feedbacks });
+
+    const feedbacks: Project4AiFeedback[] = generated.map((item, index) => ({
+      id: `feedback-${index + 1}`,
+      title: cleanText(item.title, 150) || `AI 피드백 ${index + 1}`,
+      feedback: cleanText(item.feedback),
+      evidence: cleanText(item.evidence),
+      criterionNumbers: Array.isArray(item.criterionNumbers)
+        ? item.criterionNumbers.map(Number).filter((number) => Number.isInteger(number) && number >= 1 && number <= 6).slice(0, 6)
+        : [],
+      isValid: item.isValid === true,
+      teacherExplanation: cleanText(item.teacherExplanation),
+    }));
+    if (feedbacks.some((item) => !item.feedback || !item.evidence || !item.teacherExplanation)) {
+      throw new Error("AI 피드백 내용이 완전하지 않습니다. 다시 요청해 주세요.");
+    }
+
+    const classId = access.classId || "";
+    const groupId = access.groupId || "";
+    const existing = await getProject4AiReview(classId, groupId);
+    const now = new Date().toISOString();
+    const review: Project4AiReview = {
+      classId,
+      groupId,
+      fileName: cleanText(body.fileName, 300) || "모둠-스크립트.pdf",
+      revision: (existing?.revision || 0) + 1,
+      feedbacks,
+      wrongFeedback: "",
+      submittedById: access.studentId || "",
+      submittedByName: student.name,
+      generatedAt: now,
+      updatedAt: now,
+    };
+    await saveProject4AiReview(review);
+
+    return NextResponse.json({ review: studentView(review) });
   } catch (error) {
     console.error("Project4 Claude request failed:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "AI 피드백을 만들지 못했습니다." },
+      { error: error instanceof Error ? error.message : "모둠 AI 피드백을 만들지 못했습니다." },
       { status: 400 },
     );
   }

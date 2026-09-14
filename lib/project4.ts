@@ -24,30 +24,6 @@ export type Project4Config = {
   groups: Project4Group[];
 };
 
-export type Project4PersonalFeedbackItem = {
-  id: string;
-  title: string;
-  feedback: string;
-  evidence: string;
-  criterionNumbers: number[];
-  isValid?: boolean;
-  teacherExplanation?: string;
-  decision?: "accept" | "reject";
-  reason?: string;
-};
-
-export type Project4PersonalFeedback = {
-  classId: string;
-  groupId: string;
-  studentId: string;
-  studentName: string;
-  fileName: string;
-  revision: number;
-  feedbacks: Project4PersonalFeedbackItem[];
-  generatedAt: string;
-  updatedAt: string;
-};
-
 export type Project4PeerResponse = {
   id: string;
   classId: string;
@@ -79,6 +55,8 @@ export type Project4AiFeedback = {
   feedback: string;
   evidence: string;
   criterionNumbers: number[];
+  isValid?: boolean;
+  teacherExplanation?: string;
   accept?: boolean;
   basis?: "measurement" | "experiment" | "criteria" | "unsure";
   reason?: string;
@@ -88,10 +66,12 @@ export type Project4AiReview = {
   classId: string;
   groupId: string;
   fileName: string;
+  revision: number;
   feedbacks: Project4AiFeedback[];
   wrongFeedback: string;
   submittedById: string;
   submittedByName: string;
+  generatedAt: string;
   updatedAt: string;
 };
 
@@ -163,7 +143,7 @@ export function normalizeProject4Config(value?: Partial<Project4Config>): Projec
   return {
     title: value?.title?.trim() || project4DefaultConfig.title,
     description: value?.description?.trim() || project4DefaultConfig.description,
-    openStage: Math.max(1, Math.min(8, Math.round(Number(value?.openStage) || 1))),
+    openStage: Math.max(1, Math.min(7, Math.round(Number(value?.openStage) || 1))),
     criteria: criteria.length === 6 ? criteria : [...project4DefaultCriteria],
     classes: Array.isArray(value?.classes)
       ? value.classes.map((item) => ({ id: String(item.id), name: String(item.name).trim() })).filter((item) => item.id && item.name)
@@ -182,7 +162,6 @@ export function normalizeProject4Config(value?: Partial<Project4Config>): Projec
 }
 
 export const project4Stages = [
-  "개인 AI 피드백 검토",
   "모둠 내 동료평가",
   "내가 받은 평가 확인",
   "대표 작품 선정",

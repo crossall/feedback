@@ -741,7 +741,7 @@
 
 .resultStats {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
   gap: 8px;
 }
 
@@ -879,7 +879,7 @@
 
 .journey {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 5px;
   margin-bottom: 24px;
 }
@@ -1078,7 +1078,7 @@
   opacity: 0;
 }
 
-.personalFeedbackToolbar {
+.groupFeedbackToolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 10px;
@@ -1086,16 +1086,16 @@
   margin-bottom: 18px;
 }
 
-.personalFeedbackToolbar .filePicker {
+.groupFeedbackToolbar .filePicker {
   min-height: 92px;
 }
 
-.personalFeedbackToolbar > button {
+.groupFeedbackToolbar > button {
   align-self: stretch;
   min-height: 44px;
 }
 
-.personalFeedbackMeta {
+.groupFeedbackMeta {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1106,18 +1106,18 @@
   background: #fff9e8;
 }
 
-.personalFeedbackMeta > div {
+.groupFeedbackMeta > div {
   display: grid;
   gap: 3px;
 }
 
-.personalFeedbackMeta span,
-.personalFeedbackMeta small {
+.groupFeedbackMeta span,
+.groupFeedbackMeta small {
   color: var(--muted);
   font-size: 12px;
 }
 
-.personalFeedbackActions {
+.groupFeedbackActions {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1129,14 +1129,14 @@
   background: #fff9e8;
 }
 
-.personalFeedbackActions p {
+.groupFeedbackActions p {
   margin: 0;
   color: #6d5a2c;
   font-size: 13px;
   line-height: 1.55;
 }
 
-.personalFeedbackActions button {
+.groupFeedbackActions button {
   flex: 0 0 auto;
 }
 
@@ -1183,7 +1183,7 @@
 
 .pdfIdentity {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.5fr) minmax(0, 1fr);
   gap: 12px;
   align-items: center;
   margin: 16px 0;
@@ -1191,6 +1191,11 @@
   border: 1px solid #d9e0dc;
   background: #f4f7f4;
   font-size: 12px;
+}
+
+.pdfIdentity > * {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .pdfGuide {
@@ -1557,7 +1562,7 @@
 
   .journey {
     overflow-x: auto;
-    grid-template-columns: repeat(8, 104px);
+    grid-template-columns: repeat(7, 104px);
     padding-bottom: 5px;
   }
 
@@ -1696,12 +1701,12 @@
     grid-template-columns: 1fr 1fr;
   }
 
-  .personalFeedbackToolbar {
+  .groupFeedbackToolbar {
     grid-template-columns: 1fr;
   }
 
-  .personalFeedbackActions,
-  .personalFeedbackMeta {
+  .groupFeedbackActions,
+  .groupFeedbackMeta {
     align-items: stretch;
     flex-direction: column;
   }
