@@ -193,7 +193,7 @@ function RoleHome({ config, setRole }: { config: Project4Config; setRole: (role:
     <section className={styles.home}>
       <div className={styles.homeCopy}>
         <span className={styles.kicker}><Sparkles size={15} /> SECRETS OF THE SEASONS</span>
-        <h1>계절이 바뀌는 까닭을<br /><em>설명하고, 듣고, 다시 고쳐요.</em></h1>
+        <h1>계절의 비밀을<br /><em>찾아서</em></h1>
         <p>{config.description}</p>
         <div className={styles.privacyLine}><ShieldCheck size={16} /><span>학생 평가는 친구에게 익명으로 보이며, 평가자 이름은 교사만 확인합니다.</span></div>
       </div>
