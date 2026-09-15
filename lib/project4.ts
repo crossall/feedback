@@ -20,6 +20,7 @@ export type Project4Config = {
   description: string;
   workflowVersion: number;
   openStage: number;
+  groupReviewOpen: boolean;
   criteria: string[];
   classes: Project4Class[];
   groups: Project4Group[];
@@ -170,6 +171,7 @@ export const project4DefaultConfig: Project4Config = {
   description: project4DefaultDescription,
   workflowVersion: 2,
   openStage: 1,
+  groupReviewOpen: false,
   criteria: project4DefaultCriteria,
   classes: [],
   groups: [],
@@ -189,11 +191,15 @@ export function normalizeProject4Config(value?: Partial<Project4Config>): Projec
   const openStage = previousWorkflowVersion < 2 && previousOpenStage >= 4
     ? previousOpenStage + 1
     : Math.max(1, Math.min(8, Math.round(Number(value?.openStage) || 1)));
+  const groupReviewOpen = typeof value?.groupReviewOpen === "boolean"
+    ? value.groupReviewOpen
+    : openStage >= 4;
   return {
     title: value?.title?.trim() || project4DefaultConfig.title,
     description: !description || description === project4LegacyDescription ? project4DefaultDescription : description,
     workflowVersion: 2,
     openStage,
+    groupReviewOpen,
     criteria: criteria.length === 6 ? criteria : [...project4DefaultCriteria],
     classes: Array.isArray(value?.classes)
       ? value.classes.map((item) => ({ id: String(item.id), name: String(item.name).trim() })).filter((item) => item.id && item.name)
@@ -209,6 +215,10 @@ export function normalizeProject4Config(value?: Partial<Project4Config>): Projec
       })).filter((group) => group.id && group.classId && group.name)
       : [],
   };
+}
+
+export function isProject4StageOpen(config: Project4Config, stage: number) {
+  return stage === 4 ? config.groupReviewOpen : config.openStage >= stage;
 }
 
 export const project4Stages = [

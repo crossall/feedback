@@ -36,6 +36,7 @@ import type {
   Project4PresentationReview,
   Project4Reflection,
 } from "@/lib/project4";
+import { isProject4StageOpen } from "@/lib/project4";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -65,7 +66,7 @@ function studentConfig(config: Project4Config, classId: string, groupId: string)
 }
 
 function requireStage(config: Project4Config, stage: number) {
-  if (config.openStage < stage) {
+  if (!isProject4StageOpen(config, stage)) {
     throw new Error(`${stage}단계는 아직 교사가 열지 않았습니다.`);
   }
 }

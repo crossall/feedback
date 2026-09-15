@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import {
+  isProject4StageOpen,
   project4DefaultConfig,
   project4Id,
   project4PresentationCriteria,
@@ -291,7 +292,15 @@ function TeacherStudio({ config, setConfig, token }: { config: Project4Config; s
     {message && <div className={styles.successBanner}><Check size={16} />{message}</div>}
     {error && <InlineError text={error} />}
     {tab === "setup" && <TeacherSetup draft={draft} setDraft={setDraft} save={() => save()} busy={busy} />}
-    {tab === "stages" && <TeacherStages config={draft} setStage={(stage) => save({ ...draft, openStage: stage }, `${stage}단계까지 학생에게 열었습니다.`)} busy={busy} />}
+    {tab === "stages" && <TeacherStages
+      config={draft}
+      setStage={(stage) => save({ ...draft, openStage: stage }, `${stage}단계까지 학생에게 열었습니다.`)}
+      setGroupReviewOpen={(open) => save(
+        { ...draft, groupReviewOpen: open },
+        open ? "다른 모둠 발표 평가를 학생에게 열었습니다." : "다른 모둠 발표 평가를 닫았습니다.",
+      )}
+      busy={busy}
+    />}
     {tab === "results" && <TeacherResults config={draft} data={data} refresh={loadResults} busy={busy} />}
   </section>;
 }
@@ -350,21 +359,34 @@ function StudentAdder({ onAdd }: { onAdd: (name: string) => boolean }) {
   </div>;
 }
 
-function TeacherStages({ config, setStage, busy }: { config: Project4Config; setStage: (stage: number) => void; busy: boolean }) {
-  const groupReviewOpen = config.openStage >= 4;
+function TeacherStages({ config, setStage, setGroupReviewOpen, busy }: {
+  config: Project4Config;
+  setStage: (stage: number) => void;
+  setGroupReviewOpen: (open: boolean) => void;
+  busy: boolean;
+}) {
+  const groupReviewOpen = config.groupReviewOpen;
   return <section className={styles.panel}>
     <div className={styles.panelHead}><div><span>진행</span><h2>학생 단계 열기</h2></div></div>
-    <p className={styles.panelIntro}>선택한 단계까지 학생이 이동할 수 있습니다. 이전 단계는 계속 다시 볼 수 있습니다.</p>
+    <p className={styles.panelIntro}>선택한 단계까지 학생이 이동할 수 있습니다. 다른 모둠 발표 평가는 아래 버튼으로 별도로 열고 닫습니다.</p>
     <div className={styles.groupStageControl}>
       <Clapperboard size={21} />
-      <div><b>다른 모둠 발표 평가</b><span>4단계를 열면 학생들이 같은 반의 다른 모둠을 공동으로 평가할 수 있습니다.</span></div>
-      {groupReviewOpen
-        ? <strong><Check size={15} /> 모둠평가 열림</strong>
-        : <button type="button" disabled={busy} onClick={() => setStage(4)}><Lock size={15} /> 모둠평가 열기</button>}
+      <div><b>다른 모둠 발표 평가</b><span>앞 단계를 잠가도 이 평가만 따로 열어 학생들이 같은 반의 다른 모둠을 공동으로 평가할 수 있습니다.</span></div>
+      <button
+        type="button"
+        className={groupReviewOpen ? styles.groupStageClose : ""}
+        disabled={busy}
+        onClick={() => setGroupReviewOpen(!groupReviewOpen)}
+      >
+        {groupReviewOpen ? <Lock size={15} /> : <Clapperboard size={15} />}
+        {groupReviewOpen ? "모둠평가 닫기" : "모둠평가 열기"}
+      </button>
     </div>
     <div className={styles.stageControl}>{project4Stages.map((stage, index) => {
       const number = index + 1;
-      return <button key={stage} className={number === config.openStage ? styles.current : number < config.openStage ? styles.done : ""} disabled={busy} onClick={() => setStage(number)}><span>{number < config.openStage ? <Check size={16} /> : number}</span><div><b>{stage}</b><small>{number <= config.openStage ? "학생에게 열림" : "클릭하여 이 단계까지 열기"}</small></div>{number > config.openStage && <Lock size={15} />}</button>;
+      const open = isProject4StageOpen(config, number);
+      const current = number === 4 ? groupReviewOpen : number === config.openStage;
+      return <button key={stage} className={current ? styles.current : open ? styles.done : ""} disabled={busy} onClick={() => number === 4 ? setGroupReviewOpen(true) : setStage(number)}><span>{open && !current ? <Check size={16} /> : number}</span><div><b>{stage}</b><small>{open ? "학생에게 열림" : number === 4 ? "위 버튼으로 별도 열기" : "클릭하여 이 단계까지 열기"}</small></div>{!open && <Lock size={15} />}</button>;
     })}</div>
   </section>;
 }
@@ -405,16 +427,18 @@ function StudentStudio({ config, setConfig, me, token, workspace, setWorkspace }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const group = config.groups.find((item) => item.id === me.groupId);
+  const fallbackStage = project4Stages.reduce((latest, _label, index) => isProject4StageOpen(config, index + 1) ? index + 1 : latest, 1);
+  const activeStage = isProject4StageOpen(config, stage) ? stage : fallbackStage;
   async function action(name: string, payload: Record<string, unknown> = {}) { setBusy(true); setError(""); try { const result = await project4Api<{ config: Project4Config; workspace: StudentWorkspace }>(name, { token, ...payload }); if (result.config) setConfig(result.config); setWorkspace(result.workspace); return result.workspace; } catch (caught) { setError(caught instanceof Error ? caught.message : "저장하지 못했습니다."); return null; } finally { setBusy(false); } }
-  return <section className={styles.studentShell}><div className={styles.studentHead}><div><span className={styles.kicker}>MY SEASON PROJECT</span><h1>{me.name}의 평가 여정</h1><p>{classLabel(config, me.classId)} · {group?.name}</p></div><div className={styles.openNotice}><Lock size={15} /><span>{config.openStage}단계까지 열렸어요</span><button type="button" onClick={() => void action("studentWorkspace")} disabled={busy} aria-label="공개 단계와 결과 새로고침" title="새로고침"><RefreshCw className={busy ? styles.spin : ""} size={15} /></button></div></div><nav className={styles.journey}>{project4Stages.map((label, index) => { const number = index + 1; const locked = number > config.openStage; return <button key={label} disabled={locked} className={stage === number ? styles.active : ""} onClick={() => setStage(number)}><span>{locked ? <Lock size={13} /> : number}</span><small>{label}</small></button>; })}</nav>{error && <InlineError text={error} />}<div className={styles.studentWork}>
-    {stage === 1 && <PeerStep config={config} group={group} me={me} workspace={workspace} busy={busy} action={action} />}
-    {stage === 2 && <ReceivedStep workspace={workspace} />}
-    {stage === 3 && <RepresentativeStep group={group} me={me} token={token} workspace={workspace} setWorkspace={setWorkspace} />}
-    {stage === 4 && <PresentationReviewStep config={config} me={me} token={token} workspace={workspace} setWorkspace={setWorkspace} />}
-    {stage === 5 && <AiStep key={workspace.aiReview?.updatedAt || "empty"} config={config} group={group} me={me} token={token} workspace={workspace} setWorkspace={setWorkspace} busy={busy} action={action} />}
-    {stage === 6 && <FinalStep workspace={workspace} busy={busy} action={action} />}
-    {stage === 7 && <JuniorWaitStep summary={workspace.juniorSummary} />}
-    {stage === 8 && <ReflectionStep workspace={workspace} busy={busy} action={action} />}
+  return <section className={styles.studentShell}><div className={styles.studentHead}><div><span className={styles.kicker}>MY SEASON PROJECT</span><h1>{me.name}의 평가 여정</h1><p>{classLabel(config, me.classId)} · {group?.name}</p></div><div className={styles.openNotice}><Lock size={15} /><span>{config.openStage}단계까지 · 모둠평가 {config.groupReviewOpen ? "열림" : "닫힘"}</span><button type="button" onClick={() => void action("studentWorkspace")} disabled={busy} aria-label="공개 단계와 결과 새로고침" title="새로고침"><RefreshCw className={busy ? styles.spin : ""} size={15} /></button></div></div><nav className={styles.journey}>{project4Stages.map((label, index) => { const number = index + 1; const locked = !isProject4StageOpen(config, number); return <button key={label} disabled={locked} className={activeStage === number ? styles.active : ""} onClick={() => setStage(number)}><span>{locked ? <Lock size={13} /> : number}</span><small>{label}</small></button>; })}</nav>{error && <InlineError text={error} />}<div className={styles.studentWork}>
+    {activeStage === 1 && <PeerStep config={config} group={group} me={me} workspace={workspace} busy={busy} action={action} />}
+    {activeStage === 2 && <ReceivedStep workspace={workspace} />}
+    {activeStage === 3 && <RepresentativeStep group={group} me={me} token={token} workspace={workspace} setWorkspace={setWorkspace} />}
+    {activeStage === 4 && <PresentationReviewStep config={config} me={me} token={token} workspace={workspace} setWorkspace={setWorkspace} />}
+    {activeStage === 5 && <AiStep key={workspace.aiReview?.updatedAt || "empty"} config={config} group={group} me={me} token={token} workspace={workspace} setWorkspace={setWorkspace} busy={busy} action={action} />}
+    {activeStage === 6 && <FinalStep workspace={workspace} busy={busy} action={action} />}
+    {activeStage === 7 && <JuniorWaitStep summary={workspace.juniorSummary} />}
+    {activeStage === 8 && <ReflectionStep workspace={workspace} busy={busy} action={action} />}
   </div></section>;
 }
 

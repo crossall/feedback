@@ -749,6 +749,12 @@
   cursor: pointer;
 }
 
+.groupStageControl > button.groupStageClose {
+  border-color: var(--line);
+  color: var(--ink);
+  background: white;
+}
+
 .stageControl button {
   display: grid;
   min-height: 64px;
