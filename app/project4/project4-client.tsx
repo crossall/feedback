@@ -481,7 +481,22 @@ function TeacherResults({ config, data, refresh, busy }: { config: Project4Confi
       </section>
     </>}
 
-    {view === "peer" && <ResultSection title={`${selectedClass.name} · 모둠 내 동료평가 · 교사 실명 확인`} empty={filtered.peer.length === 0}>{filtered.peer.map((item) => <article className={styles.record} key={item.id}><div className={styles.recordMeta}><b>{item.evaluatorName}</b><span>→ {item.targetName}</span><small>{groupLabel(config, item.groupId)}</small></div><div><p><strong>잘 전달된 부분</strong>{item.good}</p><p><strong>이해가 막힌 부분</strong>{item.blocked}</p></div></article>)}</ResultSection>}
+    {view === "peer" && <ResultSection title={`${selectedClass.name} · 모둠 내 동료평가 · 교사 실명 확인`} empty={filtered.peer.length === 0}>
+      {classGroups.map((group) => {
+        const groupResponses = filtered.peer
+          .filter((item) => item.groupId === group.id)
+          .sort((left, right) => left.evaluatorName.localeCompare(right.evaluatorName, "ko"));
+        return <section className={styles.peerGroupResult} key={group.id}>
+          <div className={styles.peerGroupResultHead}>
+            <div><h3>{group.name}</h3><span>{group.students.length}명</span></div>
+            <strong>{groupResponses.length}건</strong>
+          </div>
+          {groupResponses.length === 0 ? <div className={styles.peerGroupEmpty}>아직 작성된 동료평가가 없습니다.</div> : <div className={styles.peerGroupRecords}>
+            {groupResponses.map((item) => <article className={styles.record} key={item.id}><div className={styles.recordMeta}><b>{item.evaluatorName}</b><span>→ {item.targetName}</span></div><div><p><strong>잘 전달된 부분</strong>{item.good}</p><p><strong>이해가 막힌 부분</strong>{item.blocked}</p></div></article>)}
+          </div>}
+        </section>;
+      })}
+    </ResultSection>}
     {view === "representative" && <ResultSection title={`${selectedClass.name} · 대표 작품 선정`} empty={filtered.representatives.length === 0}>{filtered.representatives.map((item) => <article className={styles.record} key={`${item.classId}-${item.groupId}`}><div className={styles.recordMeta}><b>{item.selectedStudentName} 작품</b><span>{groupLabel(config, item.groupId)}</span><small>마지막 선택: {item.submittedByName}</small></div><div>{(item.reasons || []).length === 0 ? <p><strong>선정 이유</strong>{item.reason || "아직 입력된 이유가 없습니다."}</p> : (item.reasons || []).map((reason) => <p key={reason.studentId}><strong>{reason.studentName} · {reason.selectedStudentName} 작품</strong>{reason.reason}</p>)}</div></article>)}</ResultSection>}
     {view === "presentation" && <ResultSection title={`${selectedClass.name} · 다른 모둠 발표 평가 · 교사 실명 확인`} empty={filtered.presentations.length === 0}>{filtered.presentations.map((review) => <article className={styles.presentationRecord} key={`${review.classId}-${review.evaluatorGroupId}`}><h3>{review.evaluatorGroupName}<small>마지막 입력: {review.submittedByName} · {new Date(review.updatedAt).toLocaleString("ko-KR")}</small></h3>{review.targets.map((target) => <div className={styles.presentationResultTarget} key={target.targetGroupId}><b>{target.targetGroupName}</b><div>{target.ratings.map((rating, index) => <span key={index}>{index + 1} {rating ? presentationRatingLabels[rating] : "미선택"}</span>)}</div></div>)}{review.memorable && <p><strong>기억해 두고 싶은 점</strong>{review.memorable}</p>}</article>)}</ResultSection>}
     {view === "ai" && <ResultSection title={`${selectedClass.name} · 모둠 AI 피드백 검토 · 교사용 정답`} empty={filtered.ai.length === 0}>{filtered.ai.map((review) => <article className={styles.aiRecord} key={`${review.classId}-${review.groupId}`}><h3>{groupLabel(config, review.groupId)} <small>{review.revision || 1}차 · {review.fileName} · 입력: {review.submittedByName}</small></h3>{review.feedbacks.map((feedback, index) => <div key={feedback.id}><b>{index + 1}. {feedback.title}</b><span className={feedback.accept === true ? styles.accept : styles.reject}>{feedback.accept === true ? "학생 O" : feedback.accept === false ? "학생 X" : "미응답"}</span><p><strong>정답: {feedback.isValid === true ? "O" : feedback.isValid === false ? "X" : "기존 기록"}</strong>{feedback.teacherExplanation || "교사용 해설이 없는 기존 기록입니다."}<br /><small>학생 근거: {feedback.basis || "미선택"} · 학생 이유: {feedback.reason || "미입력"}</small></p></div>)}{review.wrongFeedback && <p className={styles.wrongFeedback}><strong>잘못되었다고 본 피드백</strong>{review.wrongFeedback}</p>}</article>)}</ResultSection>}
