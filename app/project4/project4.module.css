@@ -844,6 +844,184 @@
   font-weight: 700;
 }
 
+.resultDashboard {
+  display: grid;
+  gap: 18px;
+}
+
+.resultToolbar {
+  display: grid;
+  gap: 18px;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.resultDashboardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.resultDashboardHead > div {
+  display: grid;
+  gap: 3px;
+}
+
+.resultDashboardHead span,
+.resultFilterGroup > b {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.resultDashboardHead h2 {
+  margin: 0;
+  font-size: 21px;
+}
+
+.resultDashboardHead > button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background: white;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.resultFilterGroup {
+  display: grid;
+  gap: 9px;
+}
+
+.classResultTabs,
+.resultTypeTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.classResultTabs button,
+.resultTypeTabs button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  background: #fafbf9;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.classResultTabs button.active,
+.resultTypeTabs button.active {
+  border-color: var(--green);
+  color: var(--green-dark);
+  background: var(--green-pale);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+
+.resultTypeTabs button:last-child {
+  margin-left: 8px;
+  border-color: #e0b345;
+  color: #795710;
+  background: #fff9e8;
+}
+
+.resultTypeTabs button:last-child.active {
+  border-color: #b68418;
+  color: #5f4309;
+  box-shadow: inset 0 0 0 1px #b68418;
+}
+
+.resultTypeTabs small {
+  min-width: 20px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.055);
+  font-size: 10px;
+  text-align: center;
+}
+
+.resultStats.resultStatsCompact {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.summaryTableWrap {
+  overflow-x: auto;
+}
+
+.summaryTable {
+  width: 100%;
+  min-width: 940px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.summaryTable th,
+.summaryTable td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.summaryTable thead th {
+  color: var(--muted);
+  background: #f5f7f5;
+  font-size: 11px;
+}
+
+.summaryTable tbody th,
+.summaryTable td {
+  min-width: 96px;
+}
+
+.summaryTable tbody th b,
+.summaryTable td b,
+.summaryTable tbody th small,
+.summaryTable td small {
+  display: block;
+}
+
+.summaryTable tbody th b,
+.summaryTable td b {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.summaryTable tbody th small,
+.summaryTable td small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.summaryTable td.completeCell {
+  background: #f3faf6;
+}
+
+.summaryTable td.completeCell b {
+  color: var(--green-dark);
+}
+
 .recordList,
 .aiFeedbackList {
   display: grid;
@@ -1999,6 +2177,10 @@
     min-height: 56px;
   }
 
+  .resultStats.resultStatsCompact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .journey {
     overflow-x: auto;
     grid-template-columns: repeat(8, 104px);
@@ -2109,6 +2291,35 @@
 
   .tabs button {
     flex: 0 0 auto;
+  }
+
+  .resultToolbar {
+    padding: 18px;
+  }
+
+  .resultDashboardHead {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .resultDashboardHead > button {
+    align-self: flex-start;
+  }
+
+  .classResultTabs,
+  .resultTypeTabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .classResultTabs button,
+  .resultTypeTabs button {
+    flex: 0 0 auto;
+  }
+
+  .resultTypeTabs button:last-child {
+    margin-left: 2px;
   }
 
   .formGrid,

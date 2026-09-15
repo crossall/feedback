@@ -51,6 +51,7 @@ import styles from "./project4.module.css";
 
 type Role = "home" | "teacherLogin" | "teacher" | "studentLogin" | "student" | "juniorLogin" | "junior";
 type TeacherTab = "setup" | "stages" | "results";
+type TeacherResultView = "peer" | "representative" | "presentation" | "ai" | "final" | "junior" | "reflection" | "summary";
 
 type StudentWorkspace = {
   submittedTargetIds: string[];
@@ -392,17 +393,101 @@ function TeacherStages({ config, setStage, setGroupReviewOpen, busy }: {
 }
 
 function TeacherResults({ config, data, refresh, busy }: { config: Project4Config; data: TeacherData; refresh: () => void; busy: boolean }) {
-  return <div className={styles.panelStack}>
-    <div className={styles.resultStats}>{[
-      ["동료평가", data.peer.length], ["대표 선정", data.representatives.length], ["발표 평가", data.presentations.length], ["모둠 AI", data.ai.length], ["후배 응답", data.juniors.length], ["자기평가", data.reflections.length],
-    ].map(([label, value]) => <div key={String(label)}><span>{label}</span><strong>{value}</strong></div>)}<button type="button" onClick={refresh} disabled={busy}><RefreshCw className={busy ? styles.spin : ""} size={16} /> 새로고침</button></div>
-    <ResultSection title="모둠 내 동료평가 · 교사 실명 확인" empty={data.peer.length === 0}>{data.peer.map((item) => <article className={styles.record} key={item.id}><div className={styles.recordMeta}><b>{item.evaluatorName}</b><span>→ {item.targetName}</span><small>{classLabel(config, item.classId)} · {groupLabel(config, item.groupId)}</small></div><div><p><strong>잘 전달된 부분</strong>{item.good}</p><p><strong>이해가 막힌 부분</strong>{item.blocked}</p></div></article>)}</ResultSection>
-    <ResultSection title="대표 작품 선정" empty={data.representatives.length === 0}>{data.representatives.map((item) => <article className={styles.record} key={`${item.classId}-${item.groupId}`}><div className={styles.recordMeta}><b>{item.selectedStudentName} 작품</b><span>{classLabel(config, item.classId)} · {groupLabel(config, item.groupId)}</span><small>마지막 선택: {item.submittedByName}</small></div><div>{(item.reasons || []).length === 0 ? <p><strong>선정 이유</strong>{item.reason || "아직 입력된 이유가 없습니다."}</p> : (item.reasons || []).map((reason) => <p key={reason.studentId}><strong>{reason.studentName} · {reason.selectedStudentName} 작품</strong>{reason.reason}</p>)}</div></article>)}</ResultSection>
-    <ResultSection title="다른 모둠 발표 평가 · 교사 실명 확인" empty={data.presentations.length === 0}>{data.presentations.map((review) => <article className={styles.presentationRecord} key={`${review.classId}-${review.evaluatorGroupId}`}><h3>{classLabel(config, review.classId)} · {review.evaluatorGroupName}<small>마지막 입력: {review.submittedByName} · {new Date(review.updatedAt).toLocaleString("ko-KR")}</small></h3>{review.targets.map((target) => <div className={styles.presentationResultTarget} key={target.targetGroupId}><b>{target.targetGroupName}</b><div>{target.ratings.map((rating, index) => <span key={index}>{index + 1} {rating ? presentationRatingLabels[rating] : "미선택"}</span>)}</div></div>)}{review.memorable && <p><strong>기억해 두고 싶은 점</strong>{review.memorable}</p>}</article>)}</ResultSection>
-    <ResultSection title="모둠 AI 피드백 검토 · 교사용 정답" empty={data.ai.length === 0}>{data.ai.map((review) => <article className={styles.aiRecord} key={`${review.classId}-${review.groupId}`}><h3>{classLabel(config, review.classId)} · {groupLabel(config, review.groupId)} <small>{review.revision || 1}차 · {review.fileName} · 입력: {review.submittedByName}</small></h3>{review.feedbacks.map((feedback, index) => <div key={feedback.id}><b>{index + 1}. {feedback.title}</b><span className={feedback.accept === true ? styles.accept : styles.reject}>{feedback.accept === true ? "학생 O" : feedback.accept === false ? "학생 X" : "미응답"}</span><p><strong>정답: {feedback.isValid === true ? "O" : feedback.isValid === false ? "X" : "기존 기록"}</strong>{feedback.teacherExplanation || "교사용 해설이 없는 기존 기록입니다."}<br /><small>학생 근거: {feedback.basis || "미선택"} · 학생 이유: {feedback.reason || "미입력"}</small></p></div>)}{review.wrongFeedback && <p className={styles.wrongFeedback}><strong>잘못되었다고 본 피드백</strong>{review.wrongFeedback}</p>}</article>)}</ResultSection>
-    <ResultSection title="최종 대본" empty={data.finals.length === 0}>{data.finals.map((item) => <article className={styles.record} key={`${item.classId}-${item.groupId}`}><div className={styles.recordMeta}><b>{classLabel(config, item.classId)} · {groupLabel(config, item.groupId)}</b><span>입력: {item.submittedByName}</span><small>{item.mode === "pdf" ? item.fileName : "직접 작성"}</small></div><div>{item.mode === "text" ? <p><strong>최종 대본</strong>{item.text}</p> : item.fileData ? <a className={styles.outlineButton} href={item.fileData} download={item.fileName || "최종-대본.pdf"}><FileText size={15} /> PDF 내려받기</a> : <p>PDF 파일 정보가 없습니다.</p>}</div></article>)}</ResultSection>
-    <ResultSection title="5학년 후배 평가 · 교사 실명 확인" empty={data.juniors.length === 0}>{data.juniors.map((item) => <article className={styles.record} key={item.id}><div className={styles.recordMeta}><b>{item.evaluatorName}</b><span>{item.evaluatorClass}</span><small>대상: {classLabel(config, item.targetClassId)} · {groupLabel(config, item.targetGroupId)}</small></div><div><p><strong>이해 정도</strong>{item.understanding === "well" ? "잘 이해했어요" : item.understanding === "some" ? "조금 알 것 같아요" : "잘 모르겠어요"}</p>{item.question && <p><strong>질문</strong>{item.question}</p>}{item.message && <p><strong>한마디</strong>{item.message}</p>}</div></article>)}</ResultSection>
-    <ResultSection title="자기평가와 성찰" empty={data.reflections.length === 0}>{data.reflections.map((item) => <article className={styles.record} key={item.studentId}><div className={styles.recordMeta}><b>{item.studentName}</b><span>{classLabel(config, item.classId)} · {groupLabel(config, item.groupId)}</span><small>참여 {item.responsibility} · 피드백 {item.helpfulFeedback} · 수정 {item.revisedFromFeedback}</small></div><div><p><strong>고친 점</strong>{item.changed}</p><p><strong>다음 설명</strong>{item.nextExplanation}</p><p><strong>AI 미반영 이유</strong>{item.rejectedAiReason}</p></div></article>)}</ResultSection>
+  const [selectedClassState, setSelectedClass] = useState(config.classes[0]?.id || "");
+  const [view, setView] = useState<TeacherResultView>("summary");
+  const selectedClassId = config.classes.some((item) => item.id === selectedClassState)
+    ? selectedClassState
+    : config.classes[0]?.id || "";
+  const selectedClass = config.classes.find((item) => item.id === selectedClassId);
+  const classGroups = config.groups.filter((group) => group.classId === selectedClassId);
+  const filtered = {
+    peer: data.peer.filter((item) => item.classId === selectedClassId),
+    representatives: data.representatives.filter((item) => item.classId === selectedClassId),
+    presentations: data.presentations.filter((item) => item.classId === selectedClassId),
+    ai: data.ai.filter((item) => item.classId === selectedClassId),
+    finals: data.finals.filter((item) => item.classId === selectedClassId),
+    juniors: data.juniors.filter((item) => item.targetClassId === selectedClassId),
+    reflections: data.reflections.filter((item) => item.classId === selectedClassId),
+  };
+  const resultViews: Array<{ id: TeacherResultView; label: string; count: number; icon: React.ReactNode }> = [
+    { id: "peer", label: "동료평가", count: filtered.peer.length, icon: <Users size={15} /> },
+    { id: "representative", label: "대표 선정", count: filtered.representatives.length, icon: <BookOpenCheck size={15} /> },
+    { id: "presentation", label: "발표 평가", count: filtered.presentations.length, icon: <Clapperboard size={15} /> },
+    { id: "ai", label: "모둠 AI", count: filtered.ai.length, icon: <Sparkles size={15} /> },
+    { id: "final", label: "최종 대본", count: filtered.finals.length, icon: <FileText size={15} /> },
+    { id: "junior", label: "후배 평가", count: filtered.juniors.length, icon: <GraduationCap size={15} /> },
+    { id: "reflection", label: "자기평가", count: filtered.reflections.length, icon: <ClipboardCheck size={15} /> },
+    { id: "summary", label: "종합결과", count: classGroups.length, icon: <BarChart3 size={15} /> },
+  ];
+  const selectedView = resultViews.find((item) => item.id === view) || resultViews[resultViews.length - 1];
+
+  if (!selectedClass) {
+    return <section className={styles.panel}>
+      <div className={styles.panelHead}><div><h2>평가 결과</h2></div><button className={styles.outlineButton} type="button" onClick={refresh} disabled={busy}><RefreshCw className={busy ? styles.spin : ""} size={15} /> 새로고침</button></div>
+      <div className={styles.empty}>먼저 설정과 명단에서 반을 등록해 주세요.</div>
+    </section>;
+  }
+
+  return <div className={styles.resultDashboard}>
+    <section className={styles.resultToolbar}>
+      <div className={styles.resultDashboardHead}>
+        <div><span>실명 결과 조회</span><h2>{selectedClass.name} · {selectedView.label}</h2></div>
+        <button type="button" onClick={refresh} disabled={busy}><RefreshCw className={busy ? styles.spin : ""} size={16} /> 새로고침</button>
+      </div>
+      <div className={styles.resultFilterGroup}>
+        <b>반 선택</b>
+        <div className={styles.classResultTabs} role="tablist" aria-label="조회할 반">
+          {config.classes.map((classroom) => <button key={classroom.id} type="button" role="tab" aria-selected={selectedClassId === classroom.id} className={selectedClassId === classroom.id ? styles.active : ""} onClick={() => setSelectedClass(classroom.id)}>{classroom.name}</button>)}
+        </div>
+      </div>
+      <div className={styles.resultFilterGroup}>
+        <b>평가 종류</b>
+        <div className={styles.resultTypeTabs} role="tablist" aria-label="조회할 평가 종류">
+          {resultViews.map((item) => <button key={item.id} type="button" role="tab" aria-selected={view === item.id} className={view === item.id ? styles.active : ""} onClick={() => setView(item.id)}>{item.icon}<span>{item.label}</span><small>{item.count}</small></button>)}
+        </div>
+      </div>
+    </section>
+
+    {view === "summary" && <>
+      <div className={`${styles.resultStats} ${styles.resultStatsCompact}`}>{[
+        ["동료평가", filtered.peer.length], ["대표 선정", filtered.representatives.length], ["발표 평가", filtered.presentations.length], ["모둠 AI", filtered.ai.length], ["최종 대본", filtered.finals.length], ["후배 응답", filtered.juniors.length], ["자기평가", filtered.reflections.length],
+      ].map(([label, value]) => <div key={String(label)}><span>{label}</span><strong>{value}</strong></div>)}</div>
+      <section className={styles.panel}>
+        <div className={styles.panelHead}><div><span>모둠별 현황</span><h2>{selectedClass.name} 종합결과</h2></div><small>{classGroups.length}개 모둠</small></div>
+        {classGroups.length === 0 ? <div className={styles.empty}>이 반에 등록된 모둠이 없습니다.</div> : <div className={styles.summaryTableWrap}><table className={styles.summaryTable}>
+          <thead><tr><th>모둠</th><th>동료평가</th><th>대표 선정</th><th>발표 평가</th><th>모둠 AI</th><th>최종 대본</th><th>후배 평가</th><th>자기평가</th></tr></thead>
+          <tbody>{classGroups.map((group) => {
+            const peerCount = filtered.peer.filter((item) => item.groupId === group.id).length;
+            const peerExpected = group.students.length * Math.max(0, group.students.length - 1);
+            const representative = filtered.representatives.find((item) => item.groupId === group.id);
+            const presentation = filtered.presentations.find((item) => item.evaluatorGroupId === group.id);
+            const presentationCount = presentation?.targets.reduce((sum, target) => sum + target.ratings.filter(Boolean).length, 0) || 0;
+            const ai = filtered.ai.find((item) => item.groupId === group.id);
+            const final = filtered.finals.find((item) => item.groupId === group.id);
+            const juniorCount = filtered.juniors.filter((item) => item.targetGroupId === group.id).length;
+            const reflectionCount = filtered.reflections.filter((item) => item.groupId === group.id).length;
+            return <tr key={group.id}>
+              <th><b>{group.name}</b><small>{group.students.length}명</small></th>
+              <td><b>{peerCount}</b><small>/ {peerExpected}건</small></td>
+              <td className={representative ? styles.completeCell : ""}><b>{representative ? representative.selectedStudentName : "미선정"}</b><small>{representative ? "대표 작품" : "-"}</small></td>
+              <td className={presentationCount > 0 ? styles.completeCell : ""}><b>{presentationCount}</b><small>항목 평가</small></td>
+              <td className={ai ? styles.completeCell : ""}><b>{ai ? `${ai.revision || 1}차` : "미제출"}</b><small>{ai ? `${ai.feedbacks.length}개 피드백` : "-"}</small></td>
+              <td className={final ? styles.completeCell : ""}><b>{final ? "제출" : "미제출"}</b><small>{final ? (final.mode === "pdf" ? "PDF" : "직접 작성") : "-"}</small></td>
+              <td className={juniorCount > 0 ? styles.completeCell : ""}><b>{juniorCount}</b><small>명 응답</small></td>
+              <td className={reflectionCount >= group.students.length && group.students.length > 0 ? styles.completeCell : ""}><b>{reflectionCount}</b><small>/ {group.students.length}명</small></td>
+            </tr>;
+          })}</tbody>
+        </table></div>}
+      </section>
+    </>}
+
+    {view === "peer" && <ResultSection title={`${selectedClass.name} · 모둠 내 동료평가 · 교사 실명 확인`} empty={filtered.peer.length === 0}>{filtered.peer.map((item) => <article className={styles.record} key={item.id}><div className={styles.recordMeta}><b>{item.evaluatorName}</b><span>→ {item.targetName}</span><small>{groupLabel(config, item.groupId)}</small></div><div><p><strong>잘 전달된 부분</strong>{item.good}</p><p><strong>이해가 막힌 부분</strong>{item.blocked}</p></div></article>)}</ResultSection>}
+    {view === "representative" && <ResultSection title={`${selectedClass.name} · 대표 작품 선정`} empty={filtered.representatives.length === 0}>{filtered.representatives.map((item) => <article className={styles.record} key={`${item.classId}-${item.groupId}`}><div className={styles.recordMeta}><b>{item.selectedStudentName} 작품</b><span>{groupLabel(config, item.groupId)}</span><small>마지막 선택: {item.submittedByName}</small></div><div>{(item.reasons || []).length === 0 ? <p><strong>선정 이유</strong>{item.reason || "아직 입력된 이유가 없습니다."}</p> : (item.reasons || []).map((reason) => <p key={reason.studentId}><strong>{reason.studentName} · {reason.selectedStudentName} 작품</strong>{reason.reason}</p>)}</div></article>)}</ResultSection>}
+    {view === "presentation" && <ResultSection title={`${selectedClass.name} · 다른 모둠 발표 평가 · 교사 실명 확인`} empty={filtered.presentations.length === 0}>{filtered.presentations.map((review) => <article className={styles.presentationRecord} key={`${review.classId}-${review.evaluatorGroupId}`}><h3>{review.evaluatorGroupName}<small>마지막 입력: {review.submittedByName} · {new Date(review.updatedAt).toLocaleString("ko-KR")}</small></h3>{review.targets.map((target) => <div className={styles.presentationResultTarget} key={target.targetGroupId}><b>{target.targetGroupName}</b><div>{target.ratings.map((rating, index) => <span key={index}>{index + 1} {rating ? presentationRatingLabels[rating] : "미선택"}</span>)}</div></div>)}{review.memorable && <p><strong>기억해 두고 싶은 점</strong>{review.memorable}</p>}</article>)}</ResultSection>}
+    {view === "ai" && <ResultSection title={`${selectedClass.name} · 모둠 AI 피드백 검토 · 교사용 정답`} empty={filtered.ai.length === 0}>{filtered.ai.map((review) => <article className={styles.aiRecord} key={`${review.classId}-${review.groupId}`}><h3>{groupLabel(config, review.groupId)} <small>{review.revision || 1}차 · {review.fileName} · 입력: {review.submittedByName}</small></h3>{review.feedbacks.map((feedback, index) => <div key={feedback.id}><b>{index + 1}. {feedback.title}</b><span className={feedback.accept === true ? styles.accept : styles.reject}>{feedback.accept === true ? "학생 O" : feedback.accept === false ? "학생 X" : "미응답"}</span><p><strong>정답: {feedback.isValid === true ? "O" : feedback.isValid === false ? "X" : "기존 기록"}</strong>{feedback.teacherExplanation || "교사용 해설이 없는 기존 기록입니다."}<br /><small>학생 근거: {feedback.basis || "미선택"} · 학생 이유: {feedback.reason || "미입력"}</small></p></div>)}{review.wrongFeedback && <p className={styles.wrongFeedback}><strong>잘못되었다고 본 피드백</strong>{review.wrongFeedback}</p>}</article>)}</ResultSection>}
+    {view === "final" && <ResultSection title={`${selectedClass.name} · 최종 대본`} empty={filtered.finals.length === 0}>{filtered.finals.map((item) => <article className={styles.record} key={`${item.classId}-${item.groupId}`}><div className={styles.recordMeta}><b>{groupLabel(config, item.groupId)}</b><span>입력: {item.submittedByName}</span><small>{item.mode === "pdf" ? item.fileName : "직접 작성"}</small></div><div>{item.mode === "text" ? <p><strong>최종 대본</strong>{item.text}</p> : item.fileData ? <a className={styles.outlineButton} href={item.fileData} download={item.fileName || "최종-대본.pdf"}><FileText size={15} /> PDF 내려받기</a> : <p>PDF 파일 정보가 없습니다.</p>}</div></article>)}</ResultSection>}
+    {view === "junior" && <ResultSection title={`${selectedClass.name} · 5학년 후배 평가 · 교사 실명 확인`} empty={filtered.juniors.length === 0}>{filtered.juniors.map((item) => <article className={styles.record} key={item.id}><div className={styles.recordMeta}><b>{item.evaluatorName}</b><span>{item.evaluatorClass}</span><small>대상: {groupLabel(config, item.targetGroupId)}</small></div><div><p><strong>이해 정도</strong>{item.understanding === "well" ? "잘 이해했어요" : item.understanding === "some" ? "조금 알 것 같아요" : "잘 모르겠어요"}</p>{item.question && <p><strong>질문</strong>{item.question}</p>}{item.message && <p><strong>한마디</strong>{item.message}</p>}</div></article>)}</ResultSection>}
+    {view === "reflection" && <ResultSection title={`${selectedClass.name} · 자기평가와 성찰`} empty={filtered.reflections.length === 0}>{filtered.reflections.map((item) => <article className={styles.record} key={item.studentId}><div className={styles.recordMeta}><b>{item.studentName}</b><span>{groupLabel(config, item.groupId)}</span><small>참여 {item.responsibility} · 피드백 {item.helpfulFeedback} · 수정 {item.revisedFromFeedback}</small></div><div><p><strong>고친 점</strong>{item.changed}</p><p><strong>다음 설명</strong>{item.nextExplanation}</p><p><strong>AI 미반영 이유</strong>{item.rejectedAiReason}</p></div></article>)}</ResultSection>}
   </div>;
 }
 
