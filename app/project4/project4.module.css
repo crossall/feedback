@@ -700,6 +700,55 @@
   margin-top: 20px;
 }
 
+.groupStageControl {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-left: 4px solid var(--yellow);
+  background: #fff9e8;
+}
+
+.groupStageControl > svg {
+  color: var(--green-dark);
+}
+
+.groupStageControl > div {
+  display: grid;
+  gap: 3px;
+}
+
+.groupStageControl > div span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.groupStageControl > strong,
+.groupStageControl > button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  color: var(--green-dark);
+  background: var(--green-pale);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.groupStageControl > button {
+  color: white;
+  background: var(--green);
+  cursor: pointer;
+}
+
 .stageControl button {
   display: grid;
   min-height: 64px;
@@ -1928,6 +1977,16 @@
   .groupGrid,
   .resultStats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .groupStageControl {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .groupStageControl > strong,
+  .groupStageControl > button {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .resultStats > button {

@@ -351,7 +351,22 @@ function StudentAdder({ onAdd }: { onAdd: (name: string) => boolean }) {
 }
 
 function TeacherStages({ config, setStage, busy }: { config: Project4Config; setStage: (stage: number) => void; busy: boolean }) {
-  return <section className={styles.panel}><div className={styles.panelHead}><div><span>진행</span><h2>학생 단계 열기</h2></div></div><p className={styles.panelIntro}>선택한 단계까지 학생이 이동할 수 있습니다. 이전 단계는 계속 다시 볼 수 있습니다.</p><div className={styles.stageControl}>{project4Stages.map((stage, index) => { const number = index + 1; return <button key={stage} className={number === config.openStage ? styles.current : number < config.openStage ? styles.done : ""} disabled={busy} onClick={() => setStage(number)}><span>{number < config.openStage ? <Check size={16} /> : number}</span><div><b>{stage}</b><small>{number <= config.openStage ? "학생에게 열림" : "아직 잠김"}</small></div>{number > config.openStage && <Lock size={15} />}</button>; })}</div></section>;
+  const groupReviewOpen = config.openStage >= 4;
+  return <section className={styles.panel}>
+    <div className={styles.panelHead}><div><span>진행</span><h2>학생 단계 열기</h2></div></div>
+    <p className={styles.panelIntro}>선택한 단계까지 학생이 이동할 수 있습니다. 이전 단계는 계속 다시 볼 수 있습니다.</p>
+    <div className={styles.groupStageControl}>
+      <Clapperboard size={21} />
+      <div><b>다른 모둠 발표 평가</b><span>4단계를 열면 학생들이 같은 반의 다른 모둠을 공동으로 평가할 수 있습니다.</span></div>
+      {groupReviewOpen
+        ? <strong><Check size={15} /> 모둠평가 열림</strong>
+        : <button type="button" disabled={busy} onClick={() => setStage(4)}><Lock size={15} /> 모둠평가 열기</button>}
+    </div>
+    <div className={styles.stageControl}>{project4Stages.map((stage, index) => {
+      const number = index + 1;
+      return <button key={stage} className={number === config.openStage ? styles.current : number < config.openStage ? styles.done : ""} disabled={busy} onClick={() => setStage(number)}><span>{number < config.openStage ? <Check size={16} /> : number}</span><div><b>{stage}</b><small>{number <= config.openStage ? "학생에게 열림" : "클릭하여 이 단계까지 열기"}</small></div>{number > config.openStage && <Lock size={15} />}</button>;
+    })}</div>
+  </section>;
 }
 
 function TeacherResults({ config, data, refresh, busy }: { config: Project4Config; data: TeacherData; refresh: () => void; busy: boolean }) {
