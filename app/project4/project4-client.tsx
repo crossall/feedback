@@ -617,7 +617,7 @@ function PresentationReviewStep({ config, me, token, workspace, setWorkspace }: 
     };
   }, [token, setWorkspace]);
 
-  async function setRating(targetGroupId: string, criterionIndex: number, rating: Project4PresentationRating) {
+  async function setRating(targetGroupId: string, criterionIndex: number, rating: Project4PresentationRating | null) {
     const cellKey = `${targetGroupId}-${criterionIndex}`;
     if (pendingCellsRef.current.has(cellKey)) return;
     pendingCellsRef.current.add(cellKey);
@@ -672,7 +672,7 @@ function PresentationReviewStep({ config, me, token, workspace, setWorkspace }: 
   return <>
     <StepTitle number={4} title="다른 모둠 발표 평가하기" text="패들렛에서 다른 모둠 영상을 보며 모둠원이 함께 한 장의 평가표를 작성하세요." icon={<Clapperboard />} />
     {otherGroups.length === 0 ? <div className={styles.empty}>같은 반에 평가할 다른 모둠이 없습니다. 다음 열린 단계로 이동해도 됩니다.</div> : <form className={styles.presentationForm} onSubmit={saveMemory}>
-      <div className={styles.presentationNotice}><Users size={18} /><div><b>모둠 공동 평가표입니다.</b><span>친구의 선택이 자동으로 함께 보이며, 같은 칸은 마지막에 누른 선택으로 바뀝니다. 모든 모둠을 평가하지 않아도 다음 단계로 갈 수 있습니다.</span></div><strong>{completedRatings}/{totalRatings} 선택</strong></div>
+      <div className={styles.presentationNotice}><Users size={18} /><div><b>모둠 공동 평가표입니다.</b><span>선택된 버튼을 다시 누르면 해제됩니다. 같은 칸은 모둠원이 마지막으로 누른 상태로 바뀝니다.</span></div><strong>{completedRatings}/{totalRatings} 선택</strong></div>
       <div className={styles.presentationTargets}>{draft.targets.map((target) => <article className={styles.presentationTarget} key={target.targetGroupId}>
         <header><Clapperboard size={18} /><h3>{target.targetGroupName}</h3><span>{target.ratings.filter(Boolean).length}/6</span></header>
         <div>{project4PresentationCriteria.map((criterion, criterionIndex) => <section className={styles.presentationCriterion} key={criterion.title}>
@@ -680,7 +680,8 @@ function PresentationReviewStep({ config, me, token, workspace, setWorkspace }: 
           <div className={styles.presentationChoices} role="group" aria-label={`${target.targetGroupName} ${criterion.title}`}>
             {(Object.entries(presentationRatingLabels) as Array<[Project4PresentationRating, string]>).map(([rating, label]) => {
               const cellKey = `${target.targetGroupId}-${criterionIndex}`;
-              return <button type="button" disabled={savingCells.includes(cellKey)} className={target.ratings[criterionIndex] === rating ? styles.active : ""} key={rating} onClick={() => void setRating(target.targetGroupId, criterionIndex, rating)}>{savingCells.includes(cellKey) && target.ratings[criterionIndex] === rating ? "저장 중" : label}</button>;
+              const selected = target.ratings[criterionIndex] === rating;
+              return <button type="button" aria-pressed={selected} disabled={savingCells.includes(cellKey)} className={selected ? styles.active : ""} key={rating} onClick={() => void setRating(target.targetGroupId, criterionIndex, selected ? null : rating)}>{savingCells.includes(cellKey) && selected ? "저장 중" : label}</button>;
             })}
           </div>
         </section>)}</div>

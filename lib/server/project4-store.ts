@@ -172,7 +172,7 @@ type Project4PresentationRatingRecord = {
   targetGroupId: string;
   targetGroupName: string;
   criterionIndex: number;
-  rating: Project4PresentationRating;
+  rating: Project4PresentationRating | null;
   submittedById: string;
   submittedByName: string;
   updatedAt: string;

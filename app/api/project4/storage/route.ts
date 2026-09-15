@@ -321,9 +321,9 @@ export async function POST(request: Request) {
           const targetGroupId = text(body.targetGroupId, 100);
           const targetGroup = targetGroups.find((group) => group.id === targetGroupId);
           const criterionIndex = Number(body.criterionIndex);
-          const rating = body.rating as Project4PresentationRating;
+          const rating = body.rating as Project4PresentationRating | null;
           if (targetGroupId) {
-            if (!targetGroup || !Number.isInteger(criterionIndex) || criterionIndex < 0 || criterionIndex >= 6 || !validRatings.has(rating)) {
+            if (!targetGroup || !Number.isInteger(criterionIndex) || criterionIndex < 0 || criterionIndex >= 6 || (rating !== null && !validRatings.has(rating))) {
               throw new Error("평가할 모둠과 기준을 다시 확인해 주세요.");
             }
             saves.push(saveProject4PresentationRating({
