@@ -75,6 +75,44 @@ function hashStr(str, seed = 0) {
 }
 const PROJECT1_TEACHER_AUTH = { hash: hashStr("6556") };
 
+function teacherAuthAccounts(auth) {
+  const accounts = [];
+  if (!auth) return accounts;
+  if (auth.hash) accounts.push({ hash: auth.hash, name: auth.name || "" });
+  if (Array.isArray(auth.accounts)) {
+    for (const account of auth.accounts) {
+      if (account?.hash) accounts.push({ hash: account.hash, name: account.name || "" });
+      if (account?.password !== undefined) {
+        accounts.push({ hash: hashStr(String(account.password)), name: account.name || "" });
+      }
+    }
+  }
+  const count = Number(auth.temporaryPasswordCount || 0);
+  if (Number.isFinite(count) && count > 0) {
+    const prefix = auth.temporaryPasswordNamePrefix || "임시 계정";
+    for (let i = 1; i <= Math.floor(count); i++) {
+      accounts.push({ hash: hashStr(String(i)), name: `${prefix} ${i}` });
+    }
+  }
+  return accounts;
+}
+
+function mergeTeacherAuth(storedAuth, runtimeAuth) {
+  const seen = new Set();
+  const accounts = [...teacherAuthAccounts(storedAuth), ...teacherAuthAccounts(runtimeAuth)]
+    .filter((account) => {
+      if (!account.hash || seen.has(account.hash)) return false;
+      seen.add(account.hash);
+      return true;
+    });
+  return { accounts };
+}
+
+function findTeacherAuthAccount(auth, password) {
+  const inputHash = hashStr(String(password || "").trim());
+  return teacherAuthAccounts(auth).find((account) => account.hash === inputHash) || null;
+}
+
 let projectEvaluationRuntime = {};
 
 export function configureProjectEvaluationRuntime(options = {}) {
@@ -91,6 +129,11 @@ function runtimeOptions() {
     reflectionsCacheSchema: REFLECTIONS_CACHE_SCHEMA,
     defaultConfigPatch: null,
     allowEmptyClasses: false,
+    expoMode: false,
+    guideMode: false,
+    teacherOpenAccess: false,
+    teacherReadOnly: false,
+    allowIncompletePeerStep: false,
     themeCss: "",
     projectTitlePlaceholder: "예: 식물 안내서 만들기",
     projectSubjectPlaceholder: "예: 식물",
@@ -889,6 +932,422 @@ const CSS = `
 .fade{animation:fade .35s ease both}@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 a.link{color:var(--green-700);font-weight:700;text-decoration:none;border-bottom:1.5px solid var(--green-100)}
 
+.pj-expo-root .wrap{
+  padding-top:22px;
+}
+.expo-entry{
+  position:fixed;
+  inset:0;
+  z-index:90;
+  display:grid;
+  place-items:center;
+  pointer-events:none;
+  background:rgba(238,243,239,.62);
+  backdrop-filter:blur(2px);
+  animation:expoEntryShell 1.65s ease both;
+}
+.expo-entry-card{
+  width:min(520px, calc(100vw - 40px));
+  padding:24px 26px;
+  border:1px solid rgba(224,189,100,.5);
+  border-radius:8px;
+  background:#17211c;
+  color:#f8fbf7;
+  box-shadow:0 30px 70px -38px rgba(10,18,14,.78);
+  animation:expoEntryCard 1.65s cubic-bezier(.22,1,.36,1) both;
+}
+.expo-entry-card .eyebrow{
+  color:#e0bd64;
+}
+.expo-entry-card h1{
+  margin:9px 0 8px;
+  font-size:24px;
+  line-height:1.24;
+  letter-spacing:0;
+}
+.expo-entry-card p{
+  margin:0;
+  color:#d7ded9;
+  font-size:14px;
+  line-height:1.6;
+}
+.expo-entry-line{
+  display:block;
+  width:100%;
+  height:3px;
+  margin-top:18px;
+  overflow:hidden;
+  border-radius:999px;
+  background:rgba(255,255,255,.12);
+}
+.expo-entry-line i{
+  display:block;
+  height:100%;
+  width:100%;
+  border-radius:999px;
+  background:#e0bd64;
+  transform-origin:left;
+  animation:expoEntryLine 1.15s ease-out both;
+}
+@keyframes expoEntryShell{
+  0%{opacity:0}
+  16%{opacity:1}
+  78%{opacity:1}
+  100%{opacity:0}
+}
+@keyframes expoEntryCard{
+  0%{opacity:0;transform:translateY(12px) scale(.985)}
+  20%{opacity:1;transform:none}
+  76%{opacity:1;transform:none}
+  100%{opacity:0;transform:translateY(-6px) scale(.995)}
+}
+@keyframes expoEntryLine{
+  from{transform:scaleX(0)}
+  to{transform:scaleX(1)}
+}
+.expo-intro{
+  display:grid;
+  grid-template-columns:minmax(0, 1.15fr) minmax(320px, .85fr);
+  gap:20px;
+  align-items:stretch;
+  margin-bottom:24px;
+  padding:22px 24px;
+  border:1px solid #27332d;
+  border-radius:8px;
+  background:#17211c;
+  color:#f8fbf7;
+  box-shadow:0 18px 44px -28px rgba(20,32,26,.5);
+}
+.expo-intro .eyebrow{color:#e0bd64}
+.expo-intro h1{
+  margin:9px 0 10px;
+  max-width:760px;
+  font-size:27px;
+  line-height:1.22;
+  letter-spacing:0;
+}
+.expo-intro p{
+  margin:0;
+  max-width:720px;
+  color:#d5ddd7;
+  font-size:14.5px;
+  line-height:1.62;
+}
+.expo-lenses{
+  display:grid;
+  gap:8px;
+}
+.expo-lens{
+  display:grid;
+  grid-template-columns:32px minmax(0, 1fr);
+  gap:10px;
+  align-items:flex-start;
+  padding:11px 12px;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:8px;
+  background:rgba(255,255,255,.06);
+}
+.expo-lens .chip{
+  width:32px;
+  height:32px;
+  border-radius:8px;
+  display:grid;
+  place-items:center;
+}
+.expo-lens b{
+  display:block;
+  color:#fff;
+  font-size:13.5px;
+  margin-bottom:3px;
+}
+.expo-lens > span:not(.chip){
+  display:block;
+  color:#d7ded9;
+  font-size:12.5px;
+  line-height:1.45;
+}
+.expo-flow-strip{
+  margin-bottom:16px;
+  border:1px dashed #d0aa52;
+  border-radius:8px;
+  background:#fff8e8;
+  box-shadow:none;
+  overflow:hidden;
+}
+.expo-flow-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:10px 14px;
+  border-bottom:1px dashed #d0aa52;
+  background:#fff2cd;
+  flex-wrap:wrap;
+}
+.expo-flow-kicker{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  color:#8b6211;
+  font-size:12px;
+  font-weight:850;
+}
+.expo-flow-head strong{
+  color:#4b3a18;
+  font-size:13.5px;
+}
+.expo-flow-steps{
+  display:grid;
+  grid-template-columns:repeat(6, minmax(0, 1fr));
+}
+.expo-flow-step{
+  position:relative;
+  min-height:74px;
+  padding:10px 11px;
+  border-right:1px dashed #e1c986;
+  background:#fffaf0;
+}
+.expo-flow-step:last-child{border-right:none}
+.expo-flow-step i{
+  display:inline-grid;
+  place-items:center;
+  width:22px;
+  height:22px;
+  border-radius:999px;
+  background:#f4e4b7;
+  color:#6b4d12;
+  font-style:normal;
+  font-size:12px;
+  font-weight:850;
+  margin-bottom:6px;
+}
+.expo-flow-step b{
+  display:block;
+  color:#2f2b21;
+  font-size:12.8px;
+  line-height:1.28;
+  margin-bottom:3px;
+}
+.expo-flow-step small{
+  display:block;
+  color:#766744;
+  font-size:11.3px;
+  line-height:1.35;
+}
+.expo-flow-step.active{
+  background:#1d2521;
+  box-shadow:inset 0 3px 0 #d0aa52;
+}
+.expo-flow-step.active i{
+  background:#d0aa52;
+  color:#1d2521;
+}
+.expo-flow-step.active b{color:#fff}
+.expo-flow-step.active small{color:#d7ded9}
+.expo-flow-strip.teacher{
+  border-color:#a8bbb0;
+  background:#f3f7f4;
+}
+.expo-flow-strip.teacher .expo-flow-head{
+  background:#17211c;
+  border-bottom:1px solid rgba(255,255,255,.14);
+}
+.expo-flow-strip.teacher .expo-flow-kicker{
+  color:#e0bd64;
+}
+.expo-flow-strip.teacher .expo-flow-head strong{
+  color:#f8fbf7;
+}
+.expo-flow-strip.teacher .expo-flow-step{
+  background:#f8fbf8;
+  border-right-color:#cbd9d0;
+}
+.expo-flow-strip.teacher .expo-flow-step i{
+  background:#e2ebe5;
+  color:#355847;
+}
+.expo-flow-strip.teacher .expo-flow-step b{
+  color:#203028;
+}
+.expo-flow-strip.teacher .expo-flow-step small{
+  color:#64736a;
+}
+.expo-flow-strip.teacher .expo-flow-step.active{
+  background:#eef6f0;
+  box-shadow:inset 0 3px 0 var(--green);
+}
+.expo-flow-strip.teacher .expo-flow-step.active i{
+  background:var(--green);
+  color:#fff;
+}
+.expo-flow-strip.teacher .expo-flow-step.active b{
+  color:#163323;
+}
+.expo-flow-strip.teacher .expo-flow-step.active small{
+  color:#446253;
+}
+.pj-guide-root .wrap{
+  max-width:1120px;
+  margin:0 auto;
+}
+.pj-guide-root.pj-guide-student-root .wrap{
+  max-width:1120px;
+  margin:0 auto;
+}
+.expo-guide{
+  position:fixed;
+  right:20px;
+  top:92px;
+  width:304px;
+  z-index:48;
+  color:#f8fbf7;
+  filter:drop-shadow(0 26px 36px rgba(21,31,26,.22));
+}
+.expo-guide-toggle{
+  appearance:none;
+  border:1px solid rgba(224,189,100,.55);
+  background:#17211c;
+  color:#fff8e8;
+  min-height:36px;
+  padding:0 12px;
+  border-radius:8px;
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  font:inherit;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+  box-shadow:0 12px 28px -18px rgba(18,28,22,.9);
+  float:right;
+}
+.expo-guide.closed{width:auto}
+.expo-guide-panel{
+  position:relative;
+  clear:both;
+  margin-top:10px;
+  background:#17211c;
+  border:1px solid rgba(224,189,100,.45);
+  border-radius:8px;
+  box-shadow:0 28px 58px -34px rgba(12,20,16,.85);
+  padding:16px;
+}
+.expo-guide-panel:before{
+  content:"";
+  position:absolute;
+  right:28px;
+  top:-8px;
+  width:14px;
+  height:14px;
+  background:#17211c;
+  border-left:1px solid rgba(224,189,100,.45);
+  border-top:1px solid rgba(224,189,100,.45);
+  transform:rotate(45deg);
+}
+.expo-guide-eyebrow{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:#e0bd64;
+  font-size:12px;
+  font-weight:850;
+  letter-spacing:0;
+}
+.expo-guide-panel h2{
+  margin:7px 0 8px;
+  color:#fff;
+  font-size:19px;
+  line-height:1.25;
+  letter-spacing:0;
+}
+.expo-guide-section{
+  border-top:1px solid rgba(255,255,255,.12);
+  padding-top:9px;
+  margin-top:9px;
+}
+.expo-guide-section b{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  color:#e0bd64;
+  font-size:12.2px;
+  margin-bottom:4px;
+}
+.expo-guide-section p{
+  margin:0;
+  font-size:12.8px;
+  line-height:1.55;
+  color:#d7ded9;
+}
+.expo-guide-note{
+  margin-top:12px;
+  border:1px solid rgba(224,189,100,.38);
+  background:rgba(255,242,205,.1);
+  color:#fff0c6;
+  border-radius:8px;
+  padding:9px 10px;
+  font-size:12px;
+  font-weight:700;
+  line-height:1.5;
+}
+.expo-guide.student{
+  top:92px;
+  left:auto;
+  right:20px;
+  bottom:auto;
+  width:304px;
+  z-index:48;
+}
+.expo-guide.student.closed{
+  width:auto;
+}
+.expo-guide.student .expo-guide-toggle{
+  background:#17211c;
+  border-color:rgba(224,189,100,.55);
+  color:#fff8e8;
+  box-shadow:0 12px 28px -18px rgba(18,28,22,.9);
+}
+.expo-guide.student .expo-guide-panel{
+  clear:both;
+  max-height:48vh;
+  overflow:auto;
+}
+.expo-guide.student .expo-guide-panel:before{
+  right:26px;
+  left:auto;
+}
+
+@media (max-width:1180px){
+  .expo-intro{grid-template-columns:1fr}
+  .expo-flow-steps{grid-template-columns:repeat(3, minmax(0, 1fr))}
+  .expo-flow-step:nth-child(3){border-right:none}
+  .expo-flow-step:nth-child(n+4){border-top:1px dashed #e1c986}
+  .expo-flow-strip.teacher .expo-flow-step:nth-child(n+4){border-top-color:#cbd9d0}
+  .expo-guide{
+    left:12px;
+    right:12px;
+    bottom:12px;
+    top:auto;
+    width:auto;
+    z-index:30;
+  }
+  .expo-guide-toggle{box-shadow:var(--shadow-lg)}
+  .expo-guide-panel{
+    max-height:42vh;
+    overflow:auto;
+  }
+  .expo-guide-panel:before{left:34px;right:auto}
+  .expo-guide.student{
+    left:auto;
+    right:12px;
+    top:82px;
+    bottom:auto;
+    width:min(304px, calc(100vw - 24px));
+  }
+  .expo-guide.student.closed{width:auto}
+  .expo-guide.student .expo-guide-panel:before{left:auto;right:26px}
+}
+
 @media (max-width:860px){
   .layout{grid-template-columns:1fr}
   .rail{position:static}
@@ -903,6 +1362,14 @@ a.link{color:var(--green-700);font-weight:700;text-decoration:none;border-bottom
 }
 @media (max-width:640px){
   .wrap{padding:16px 12px 56px}
+  .pj-expo-root .wrap{padding-top:16px}
+  .expo-entry-card{padding:20px}
+  .expo-entry-card h1{font-size:21px}
+  .expo-intro{padding:18px}
+  .expo-intro h1{font-size:24px}
+  .expo-flow-steps{grid-template-columns:1fr}
+  .expo-flow-step{min-height:auto;border-right:none;border-top:1px solid var(--line)}
+  .expo-flow-step:first-child{border-top:none}
   .topbar-in{padding:10px 12px;flex-wrap:wrap}
   .topbar-in > .center{width:100%;justify-content:space-between}
   .pj-brand small{max-width:68vw}
@@ -922,6 +1389,10 @@ a.link{color:var(--green-700);font-weight:700;text-decoration:none;border-bottom
   .dropzone{padding:28px 14px}
   .guide-frame{height:420px}
   .tbl{min-width:720px}
+  .expo-guide.student{top:104px;right:10px;width:min(310px, calc(100vw - 20px))}
+}
+@media (prefers-reduced-motion:reduce){
+  .expo-entry,.expo-entry-card,.expo-entry-line i{animation:none}
 }
 `;
 
@@ -976,6 +1447,8 @@ export default function App() {
   const [storeOk, setStoreOk] = useState(true);
   const [config, setConfig] = useState(null);
   const [me, setMe] = useState(null); // {role, groupId, name, key} | {role:'teacher'}
+  const [showExpoEntry, setShowExpoEntry] = useState(false);
+  const opts = runtimeOptions();
 
   useEffect(() => {
     (async () => {
@@ -989,9 +1462,31 @@ export default function App() {
     })();
   }, []);
 
+  useEffect(() => {
+    if (!ready || !opts.expoMode) return;
+    let alreadySeen = false;
+    try {
+      alreadySeen = window.sessionStorage.getItem("project_expo_entry_seen") === "1";
+    } catch (e) {
+      alreadySeen = false;
+    }
+    if (alreadySeen) return;
+
+    setShowExpoEntry(true);
+    try {
+      window.sessionStorage.setItem("project_expo_entry_seen", "1");
+    } catch (e) {
+      // Storage only prevents replaying the cue; failures should not block the page.
+    }
+    const timer = window.setTimeout(() => setShowExpoEntry(false), 1700);
+    return () => window.clearTimeout(timer);
+  }, [ready, opts.expoMode]);
+
   const saveConfig = useCallback(async (next) => {
+    if (runtimeOptions().teacherReadOnly) return false;
     setConfig(next);
     await store.set("pj_config", next, true);
+    return true;
   }, []);
   const chooseMe = useCallback(async (identity) => {
     setMe(identity);
@@ -1005,14 +1500,15 @@ export default function App() {
   if (!ready)
     return (
       <div className="pj-root" style={{ display: "grid", placeItems: "center", height: "100vh" }}>
-        <style>{CSS}{runtimeOptions().themeCss}</style>
+        <style>{CSS}{opts.themeCss}</style>
         <div className="center muted"><Loader2 className="spin" size={20} /> 불러오는 중…</div>
       </div>
     );
 
   return (
-    <div className="pj-root">
-      <style>{CSS}{runtimeOptions().themeCss}</style>
+    <div className={`pj-root ${opts.expoMode ? "pj-expo-root" : ""} ${opts.guideMode ? "pj-guide-root" : ""} ${opts.guideMode && me?.role === "student" ? "pj-guide-student-root" : ""}`}>
+      <style>{CSS}{opts.themeCss}</style>
+      {showExpoEntry && <ExpoEntryCue />}
       <header className="topbar">
         <div className="topbar-in">
           <button className="pj-brand" type="button" onClick={reset} aria-label="프로젝트 첫 화면으로 돌아가기">
@@ -1026,7 +1522,7 @@ export default function App() {
               <span className="pill">
                 {me.role === "teacher" ? <GraduationCap size={14} /> : <UserCircle2 size={14} />}
                 {me.role === "teacher"
-                  ? "교사"
+                  ? `교사${me.name ? ` · ${me.name}` : ""}`
                   : `${me.classId && className(config, me.classId) ? className(config, me.classId) + " " : ""}${groupName(config, me.groupId)} · ${me.name}`}
               </span>
               <button className="btn sm ghost" onClick={reset}><LogOut size={15} /> 나가기</button>
@@ -1044,9 +1540,11 @@ export default function App() {
           </div>
         )}
 
+        {opts.expoMode && !me && <ExpoProcessIntro />}
         {!me && <RoleGate onPick={chooseMe} config={config} />}
         {me?.role === "teacher" && <TeacherApp config={config} saveConfig={saveConfig} />}
         {me?.role === "student" && <StudentApp config={config} me={me} />}
+        {!me && <ExpoGuide context="home" />}
       </div>
     </div>
   );
@@ -1059,6 +1557,248 @@ function className(config, cid) {
   return config?.classes?.find((c) => c.id === cid)?.name || "";
 }
 
+const EXPO_STUDENT_FLOW_STEPS = [
+  { key: "result", label: "초안 제출", desc: "모둠 PDF와 AI 피드포워드" },
+  { key: "final", label: "수정 후 제출", desc: "피드백 반영 결과물" },
+  { key: "peer", label: "동료평가", desc: "다른 모둠이 남기는 평가" },
+  { key: "collab", label: "협업평가", desc: "모둠 안 협력 과정 확인" },
+  { key: "report", label: "결과 확인", desc: "개인별 평가 결과지" },
+  { key: "reflect", label: "성찰", desc: "다음 성장을 위한 기록" },
+];
+
+const EXPO_TEACHER_FLOW_STEPS = [
+  { key: "design", label: "수업 설계", desc: "목표, 산출물, 평가 장면 정렬" },
+  { key: "criteria", label: "평가 언어 만들기", desc: "루브릭과 피드포워드 기준 설계" },
+  { key: "relation", label: "평가 관계 조직", desc: "반, 모둠, 동료평가 구조 준비" },
+  { key: "orchestrate", label: "진행 조율", desc: "단계 열기와 완료 흐름 관리" },
+  { key: "interpret", label: "증거 해석", desc: "제출, 평가, 성찰 기록 읽기" },
+  { key: "return", label: "환류", desc: "결과지와 다음 수업으로 연결" },
+];
+
+function ExpoEntryCue() {
+  return (
+    <div className="expo-entry" role="status" aria-live="polite">
+      <div className="expo-entry-card">
+        <div className="eyebrow"><Eye size={14} /> 전시용 사본 입장</div>
+        <h1>지금부터 수업의 결과물이 아니라, 배움이 움직이는 과정을 봅니다.</h1>
+        <p>
+          학생의 초안, AI 피드포워드, 동료평가, 협업평가, 성찰이 어떻게 다음 행동으로 이어지는지 관찰하는 화면입니다.
+        </p>
+        <span className="expo-entry-line"><i /></span>
+      </div>
+    </div>
+  );
+}
+
+function ExpoProcessIntro() {
+  if (!runtimeOptions().expoMode) return null;
+  const lenses = [
+    {
+      icon: Sparkles,
+      color: "var(--teal)",
+      title: "AI 초안 피드포워드",
+      text: "AI는 판정자가 아니라, 학생이 초안을 다시 살피고 고칠 다음 행동을 찾게 돕는 피드포워드 장치입니다.",
+    },
+    {
+      icon: CheckSquare,
+      color: "var(--green)",
+      title: "학생이 수행하는 평가",
+      text: "동료평가와 협업평가는 학생이 기준을 사용해 읽고 판단하며, 친구의 다음 개선을 돕는 과정입니다.",
+    },
+    {
+      icon: BarChart3,
+      color: "var(--gold)",
+      title: "교사의 환류 판단",
+      text: "교사는 제출물과 평가 기록, 성찰을 함께 읽어 어떤 피드백을 다시 돌려줄지 판단합니다.",
+    },
+  ];
+
+  return (
+    <section className="expo-intro" aria-label="과정중심평가 전시 소개">
+      <div>
+        <div className="eyebrow"><Eye size={14} /> 과정중심평가 수업 관찰관</div>
+        <h1>결과물보다, 학생이 피드백을 받고 다음 행동으로 옮기는 과정을 봅니다.</h1>
+        <p>
+          이 전시관은 카드뉴스 작품을 모아 보여주는 공간이 아니라, 학생이 초안을 제출하고 AI 피드포워드를 받은 뒤
+          서로 평가하고 협업 과정을 성찰하며 결과물을 개선해 가는 수업 흐름을 익명화해 따라가 보는 공간입니다.
+        </p>
+      </div>
+      <div className="expo-lenses">
+        {lenses.map(({ icon: Icon, color, title, text }) => (
+          <div className="expo-lens" key={title}>
+            <span className="chip" style={{ background: color, color: "#fff" }}><Icon size={18} /></span>
+            <span>
+              <b>{title}</b>
+              <span>{text}</span>
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ExpoFlowStrip({ context, active }) {
+  if (!runtimeOptions().expoMode) return null;
+  const teacherActive = { setup: "design", rubric: "criteria", groups: "relation", results: "interpret" };
+  const isTeacher = context === "teacher";
+  const activeKey = isTeacher ? teacherActive[active] : active;
+  const steps = isTeacher ? EXPO_TEACHER_FLOW_STEPS : EXPO_STUDENT_FLOW_STEPS;
+  const title = context === "teacher"
+    ? "교사는 학생 활동을 대신하지 않고, 좋은 평가 증거가 생기도록 수업을 설계하고 해석합니다."
+    : "학생 화면은 피드백, 평가, 성찰이 순서대로 이어지는 흐름입니다.";
+
+  return (
+    <section className={`expo-flow-strip ${isTeacher ? "teacher" : "student"}`} aria-label="수업 흐름 지도">
+      <div className="expo-flow-head">
+        <span className="expo-flow-kicker"><BookOpen size={14} /> {isTeacher ? "교사의 과정중심평가 지도" : "학생의 수업 흐름 지도"}</span>
+        <strong>{title}</strong>
+      </div>
+      <div className="expo-flow-steps">
+        {steps.map((stage, index) => (
+          <div className={`expo-flow-step ${stage.key === activeKey ? "active" : ""}`} key={stage.key}>
+            <i>{index + 1}</i>
+            <b>{stage.label}</b>
+            <small>{stage.desc}</small>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function guideCopy(context, step, tab) {
+  if (context === "teacher") {
+    const byTab = {
+      setup: {
+        title: "평가가 일어날 수업 조건 설계",
+        sections: [
+          { label: "교사 판단", text: "먼저 수업 목표, 학생 산출물, 피드백을 받을 시점, 서로 평가할 장면을 하나의 흐름으로 맞춥니다." },
+          { label: "평가 증거", text: "제출물 하나가 아니라 초안, 수정본, 동료평가, 협업평가, 성찰이 이어져 학생 성장의 맥락이 됩니다." },
+          { label: "관람 포인트", text: "좋은 과정중심평가는 활동을 많이 넣는 것이 아니라, 학생의 생각 변화가 남을 자리를 미리 설계하는 일입니다." },
+        ],
+      },
+      rubric: {
+        title: "학생이 사용할 평가 언어 만들기",
+        sections: [
+          { label: "교사 판단", text: "AI 피드포워드 기준, 동료평가 기준, 협업평가 기준을 구분해 각 평가가 맡을 역할을 분명히 합니다." },
+          { label: "평가 증거", text: "루브릭은 채점표를 넘어 학생이 친구 결과물을 읽고 근거를 말할 때 사용하는 공통 언어가 됩니다." },
+          { label: "관람 포인트", text: "교사는 정답을 대신 말하기보다, 학생이 무엇을 보고 판단해야 하는지 기준을 선명하게 제공합니다." },
+        ],
+      },
+      groups: {
+        title: "서로 배울 수 있는 평가 관계 조직",
+        sections: [
+          { label: "교사 판단", text: "반과 모둠을 조직해 학생이 공동 산출물, 다른 모둠의 산출물, 같은 모둠 친구의 협업을 구분해 보게 합니다." },
+          { label: "평가 증거", text: "모둠 제출은 공동 학습의 결과로, 개인별 동료·협업 응답은 학생이 실제로 판단한 흔적으로 남습니다." },
+          { label: "관람 포인트", text: "평가 관계를 잘 짜면 학생은 평가받는 대상에 머물지 않고, 다른 결과물을 읽는 평가자가 됩니다." },
+        ],
+      },
+      results: {
+        title: "과정 증거를 읽고 환류하기",
+        sections: [
+          { label: "교사 판단", text: "제출 여부만 확인하지 않고, 어느 단계에서 피드백이 멈췄는지, 어떤 학생에게 환류가 필요한지 살핍니다." },
+          { label: "평가 증거", text: "초안, AI 피드포워드, 최종본, 동료평가, 협업평가, 성찰을 함께 읽어 학생의 배움 과정을 해석합니다." },
+          { label: "관람 포인트", text: "개인 결과지 출력은 끝 점수가 아니라, 학생에게 다시 돌아가는 피드백 자료로 보아야 합니다." },
+        ],
+      },
+    };
+    return byTab[tab] || byTab.setup;
+  }
+
+  if (context === "student") {
+    const byStep = {
+      result: {
+        title: "초안 제출과 AI 피드포워드",
+        sections: [
+          { label: "학생 행동", text: "모둠 초안 PDF를 올리고, AI가 루브릭 기준으로 읽어 준 수정 방향을 확인합니다." },
+          { label: "평가 증거", text: "초안, AI 피드백 요약, 항목별 근거가 남아 학생이 무엇을 고쳐야 하는지 드러납니다." },
+          { label: "관람 포인트", text: "AI 점수는 최종점수가 아니라 다음 제출물을 더 낫게 만드는 피드포워드로 쓰입니다." },
+        ],
+      },
+      final: {
+        title: "수정 후 최종 제출",
+        sections: [
+          { label: "학생 행동", text: "AI 피드백과 모둠 논의를 바탕으로 고친 최종 PDF를 제출합니다." },
+          { label: "평가 증거", text: "초안과 최종본이 분리되어 남기 때문에, 학생이 받은 피드백 이후 어떤 결과물을 냈는지 볼 수 있습니다." },
+          { label: "관람 포인트", text: "최종본은 모둠 공동 산출물이라 한 명이 올리면 모둠 전체 제출로 처리됩니다." },
+        ],
+      },
+      peer: {
+        title: "학생이 학생의 결과물을 읽는 장면",
+        sections: [
+          { label: "학생 행동", text: "같은 반의 다른 모둠 결과물을 보고 루브릭에 따라 평가와 서술형 피드백을 남깁니다." },
+          { label: "평가 증거", text: "점수뿐 아니라 좋은 점, 더 나아질 점, 판단 근거가 학생 언어로 기록됩니다." },
+          { label: "관람 포인트", text: "모든 대상 모둠 평가를 마쳐야 다음 단계로 이동하도록 해 평가 흐름이 흩어지지 않게 했습니다." },
+        ],
+      },
+      collab: {
+        title: "협업 과정을 서로 평가하기",
+        sections: [
+          { label: "학생 행동", text: "같은 모둠 친구들의 역할 수행, 의견 나누기, 서로 돕는 과정을 평가합니다." },
+          { label: "평가 증거", text: "결과물만으로 보이지 않는 협력 과정이 개인별 협업 점수와 익명 피드백으로 남습니다." },
+          { label: "관람 포인트", text: "협업평가가 끝나야 결과 확인으로 넘어가므로, 결과보다 과정 평가를 먼저 마주하게 됩니다." },
+        ],
+      },
+      report: {
+        title: "평가 결과를 자기 언어로 확인하기",
+        sections: [
+          { label: "학생 행동", text: "동료평가와 협업평가를 합친 개인 결과지를 확인하고 저장하거나 출력할 수 있습니다." },
+          { label: "평가 증거", text: "모둠 결과물 평가와 개인 협업 평가가 함께 보이며, AI 피드포워드는 별도 참고 자료로 표시됩니다." },
+          { label: "관람 포인트", text: "결과 확인은 과정이 끝난 뒤 열립니다. 학생이 먼저 점수만 확인하지 않도록 순서를 잡았습니다." },
+        ],
+      },
+      reflect: {
+        title: "성찰로 다음 활동 연결하기",
+        sections: [
+          { label: "학생 행동", text: "협력 과정, AI 피드백 반영, 다음 프로젝트에서 더 잘하고 싶은 점을 돌아봅니다." },
+          { label: "평가 증거", text: "성찰 답변은 교사 페이지에 반별로 모이고, 학생의 다음 성장을 위한 기록으로 남습니다." },
+          { label: "관람 포인트", text: "전시는 여기서 끝나는 것이 아니라, 학생이 다음 프로젝트를 어떻게 준비하는지까지 보여줍니다." },
+        ],
+      },
+    };
+    return byStep[step] || byStep.result;
+  }
+
+  return {
+    title: "관람 동선",
+    sections: [
+      { label: "관람 초점", text: "학생 결과물을 구경하기보다, 피드백을 받고 다시 고치고 서로 평가하는 과정을 따라가면 됩니다." },
+      { label: "추천 동선", text: "먼저 학생으로 입장해 단계 흐름을 체험한 뒤, 교사 화면에서 그 과정 증거가 어떻게 모이는지 확인해 보세요." },
+      { label: "보호 장치", text: "교사 화면은 비밀번호 없이 볼 수 있지만 수정은 잠겨 있고, 학생 데이터는 익명화된 전시용 사본입니다." },
+    ],
+  };
+}
+
+function ExpoGuide({ context, step, tab }) {
+  const [open, setOpen] = useState(false);
+  if (!runtimeOptions().guideMode) return null;
+
+  const guide = guideCopy(context, step, tab);
+  return (
+    <aside className={`expo-guide ${context === "student" ? "student" : ""} ${open ? "open" : "closed"}`} aria-label="전시관 관람 안내">
+      <button className="expo-guide-toggle" type="button" onClick={() => setOpen((v) => !v)}>
+        <MessageSquare size={16} /> {open ? "안내 접기" : "관람 안내"}
+      </button>
+      {open && (
+        <div className="expo-guide-panel">
+          <div className="expo-guide-eyebrow"><BookOpen size={14} /> 전시 해설 레이어</div>
+          <h2>{guide.title}</h2>
+          {guide.sections.map((section) => (
+            <div className="expo-guide-section" key={section.label}>
+              <b><Eye size={13} /> {section.label}</b>
+              <p>{section.text}</p>
+            </div>
+          ))}
+          <div className="expo-guide-note">
+            이 안내는 원래 플랫폼 위에 얹은 관람용 설명입니다. 새로 입력하거나 올린 내용은 이 브라우저의 체험 데이터로만 남습니다.
+          </div>
+        </div>
+      )}
+    </aside>
+  );
+}
+
 /* =================================================================== */
 /* ============================  ROLE GATE  ========================= */
 /* =================================================================== */
@@ -1067,6 +1807,7 @@ function RoleGate({ onPick, config }) {
   const [cid, setCid] = useState("");
   const [gid, setGid] = useState("");
   const [name, setName] = useState("");
+  const teacherOpenAccess = runtimeOptions().teacherOpenAccess;
   const classes = config?.classes || [];
   const myGroups = (config?.groups || []).filter((g) => g.classId === cid);
   const group = config?.groups?.find((g) => g.id === gid);
@@ -1138,13 +1879,15 @@ function RoleGate({ onPick, config }) {
         </p>
       </div>
       <div className="role-grid">
-        <div className="role" onClick={() => setMode("teacher")}>
+        <div className="role" onClick={() => teacherOpenAccess ? onPick({ role: "teacher", name: "관람 교사" }) : setMode("teacher")}>
           <div className="ic" style={{ background: "var(--green-soft)", color: "var(--green-700)" }}><GraduationCap size={28} /></div>
           <div className="h2">선생님</div>
           <p className="muted" style={{ fontSize: 13.5, marginTop: 6 }}>
-            프로젝트·루브릭·모둠을 설정하고, 학생 평가 링크를 배포하고, 모든 결과를 한 번에 확인합니다.
+            {teacherOpenAccess
+              ? "전시관에서는 비밀번호 없이 교사용 흐름을 둘러볼 수 있습니다. 설정 변경과 데이터 수정은 잠겨 있습니다."
+              : "프로젝트·루브릭·모둠을 설정하고, 학생 평가 링크를 배포하고, 모든 결과를 한 번에 확인합니다."}
           </p>
-          <div className="pill green" style={{ marginTop: 14 }}>설정 · 통합 조회 <ChevronRight size={13} /></div>
+          <div className="pill green" style={{ marginTop: 14 }}>{teacherOpenAccess ? "읽기 전용 관람" : "설정 · 통합 조회"} <ChevronRight size={13} /></div>
         </div>
         <div className="role" onClick={() => setMode("student")}>
           <div className="ic" style={{ background: "var(--accent-soft)", color: "var(--accent-700)" }}><UserCircle2 size={28} /></div>
@@ -1164,22 +1907,23 @@ function RoleGate({ onPick, config }) {
 /* =================================================================== */
 function TeacherGate({ onAuthed, onBack }) {
   const [loading, setLoading] = useState(true);
-  const [acct, setAcct] = useState(runtimeOptions().teacherAuth); // {hash}
+  const [acct, setAcct] = useState(() => mergeTeacherAuth(null, runtimeOptions().teacherAuth));
   const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
 
   useEffect(() => {
     (async () => {
       const a = await store.get("pj_teacher_auth", true);
-      setAcct(a?.hash ? { hash: a.hash } : runtimeOptions().teacherAuth);
+      setAcct(mergeTeacherAuth(a, runtimeOptions().teacherAuth));
       setLoading(false);
     })();
   }, []);
 
   const login = () => {
     setErr("");
-    if (hashStr(pw) !== acct.hash) return setErr("비밀번호가 맞지 않아요. 다시 입력해 주세요.");
-    onAuthed("");
+    const account = findTeacherAuthAccount(acct, pw);
+    if (!account) return setErr("비밀번호가 맞지 않아요. 다시 입력해 주세요.");
+    onAuthed(account.name || "");
   };
 
   const onEnter = (fn) => (e) => { if (e.key === "Enter") fn(); };
@@ -1225,10 +1969,13 @@ function TeacherApp({ config, saveConfig }) {
   const [tab, setTab] = useState("setup");
   const [draft, setDraft] = useState(withClasses(config));
   const [savedFlash, setSavedFlash] = useState(false);
+  const readOnly = runtimeOptions().teacherReadOnly;
   const dirty = JSON.stringify(draft) !== JSON.stringify(config);
 
   const doSave = async () => {
-    await saveConfig(draft);
+    if (readOnly) return;
+    const saved = await saveConfig(draft);
+    if (saved === false) return;
     setSavedFlash(true);
     setTimeout(() => setSavedFlash(false), 1800);
   };
@@ -1242,17 +1989,27 @@ function TeacherApp({ config, saveConfig }) {
 
   return (
     <div className="fade">
+      <ExpoFlowStrip context="teacher" active={tab} />
       <div className="between" style={{ marginBottom: 16, flexWrap: "wrap" }}>
         <div>
           <div className="eyebrow"><GraduationCap size={14} /> 교사용 페이지</div>
           <h1 className="h1">{draft.project.title || "새 프로젝트"}</h1>
         </div>
         <div className="center">
+          {readOnly && <span className="pill gray"><Lock size={14} /> 읽기 전용</span>}
           {savedFlash && <span className="pill green"><CheckCircle2 size={14} /> 저장됨</span>}
-          {dirty && <span className="pill accent">저장 안 된 변경사항</span>}
-          <button className="btn primary" onClick={doSave} disabled={!dirty}><Save size={16} /> 변경사항 저장</button>
+          {dirty && !readOnly && <span className="pill accent">저장 안 된 변경사항</span>}
+          <button className="btn primary" onClick={doSave} disabled={!dirty || readOnly}><Save size={16} /> 변경사항 저장</button>
         </div>
       </div>
+
+      {readOnly && (
+        <div style={{ marginBottom: 16 }}>
+          <Banner kind="info" icon={Lock}>
+            전시관 교사용 화면입니다. 실제 운영 화면의 구조와 결과는 볼 수 있지만, 프로젝트 설정·루브릭·모둠·진행 단계 변경은 잠겨 있습니다.
+          </Banner>
+        </div>
+      )}
 
       <div className="tabs" style={{ marginBottom: 18 }}>
         {TABS.map(([k, t, Ic]) => (
@@ -1262,28 +2019,36 @@ function TeacherApp({ config, saveConfig }) {
         ))}
       </div>
 
-      {tab === "setup" && <TeacherSetup draft={draft} setDraft={setDraft} configSaved={!!config} />}
-      {tab === "rubric" && <TeacherRubric draft={draft} setDraft={setDraft} />}
-      {tab === "groups" && <TeacherGroups draft={draft} setDraft={setDraft} />}
+      {tab === "setup" && <TeacherSetup draft={draft} setDraft={setDraft} configSaved={!!config} readOnly={readOnly} />}
+      {tab === "rubric" && <TeacherRubric draft={draft} setDraft={setDraft} readOnly={readOnly} />}
+      {tab === "groups" && <TeacherGroups draft={draft} setDraft={setDraft} readOnly={readOnly} />}
       {tab === "results" && <TeacherResults config={config} />}
+      <ExpoGuide context="teacher" tab={tab} />
     </div>
   );
 }
 
-function TeacherSetup({ draft, setDraft, configSaved }) {
-  const set = (path, val) => setDraft((d) => {
+function TeacherSetup({ draft, setDraft, configSaved, readOnly = false }) {
+  const set = (path, val) => {
+    if (readOnly) return;
+    setDraft((d) => {
     const n = structuredClone(d);
     if (path === "title") n.project.title = val;
     if (path === "subject") n.project.subject = val;
     if (path === "desc") n.project.desc = val;
     if (path === "self") n.settings.selfInCollab = val;
     return n;
-  });
-  const loadExample = () => setDraft(getDefaultConfig());
+    });
+  };
+  const loadExample = () => {
+    if (readOnly) return;
+    setDraft(getDefaultConfig());
+  };
 
   const [resetMsg, setResetMsg] = useState(null); // { ok, text }
   const [resetting, setResetting] = useState(false);
   const resetData = async () => {
+    if (readOnly) return;
     setResetting(true); setResetMsg(null);
     try {
       const prefixes = ["pj_sub_", "pj_draft_", "pj_peer_", "pj_collab_", "pj_reflect_"];
@@ -1307,16 +2072,16 @@ function TeacherSetup({ draft, setDraft, configSaved }) {
           <h2 className="h2" style={{ marginBottom: 14 }}>프로젝트 정보</h2>
           <div className="field">
             <label className="label">프로젝트 이름</label>
-            <input className="input" value={draft.project.title} onChange={(e) => set("title", e.target.value)} placeholder={runtimeOptions().projectTitlePlaceholder} />
+            <input className="input" value={draft.project.title} onChange={(e) => set("title", e.target.value)} placeholder={runtimeOptions().projectTitlePlaceholder} disabled={readOnly} />
           </div>
           <div className="field">
             <label className="label">주제 (AI 채점 기준이 됩니다)</label>
-            <input className="input" value={draft.project.subject} onChange={(e) => set("subject", e.target.value)} placeholder={runtimeOptions().projectSubjectPlaceholder} />
+            <input className="input" value={draft.project.subject} onChange={(e) => set("subject", e.target.value)} placeholder={runtimeOptions().projectSubjectPlaceholder} disabled={readOnly} />
             <span className="hint">AI가 결과물을 채점할 때 이 주제에 얼마나 맞는지 판단합니다.</span>
           </div>
           <div className="field">
             <label className="label">학생 안내 설명</label>
-            <textarea className="textarea" value={draft.project.desc} onChange={(e) => set("desc", e.target.value)} placeholder="학생들이 보게 될 프로젝트 설명" />
+            <textarea className="textarea" value={draft.project.desc} onChange={(e) => set("desc", e.target.value)} placeholder="학생들이 보게 될 프로젝트 설명" disabled={readOnly} />
           </div>
           <div className="divider" />
           <label className="checkrow" style={{ cursor: "pointer" }}>
@@ -1324,7 +2089,7 @@ function TeacherSetup({ draft, setDraft, configSaved }) {
               <div className="h3">협업 평가에 자기 자신도 포함</div>
               <div className="hint">끄면 모둠원은 자신을 제외한 친구들만 평가합니다.</div>
             </div>
-            <input type="checkbox" checked={draft.settings.selfInCollab} onChange={(e) => set("self", e.target.checked)} style={{ width: 20, height: 20 }} />
+            <input type="checkbox" checked={draft.settings.selfInCollab} onChange={(e) => set("self", e.target.checked)} disabled={readOnly} style={{ width: 20, height: 20 }} />
           </label>
         </div>
       </div>
@@ -1344,7 +2109,7 @@ function TeacherSetup({ draft, setDraft, configSaved }) {
           <p className="muted" style={{ fontSize: 13.5, margin: "8px 0 12px" }}>
             {runtimeOptions().quickStartDescription}
           </p>
-          <button className="btn" onClick={loadExample}><RefreshCw size={15} /> 예시 루브릭 불러오기</button>
+          <button className="btn" onClick={loadExample} disabled={readOnly}><RefreshCw size={15} /> 예시 루브릭 불러오기</button>
         </div>
 
         <div className="card pad-lg" style={{ marginTop: 16, borderColor: "var(--rose)" }}>
@@ -1355,37 +2120,58 @@ function TeacherSetup({ draft, setDraft, configSaved }) {
           {resetMsg && <div style={{ marginBottom: 10 }}><Banner kind={resetMsg.ok ? "ok" : "warn"}>{resetMsg.text}</Banner></div>}
           {resetting
             ? <button className="btn" disabled><Loader2 className="spin" size={15} /> 비우는 중…</button>
-            : <ConfirmDelete onConfirm={resetData} label="학생 제출·평가 모두 비우기" prompt="정말 모두 지울까요?" small={false} />}
+            : <ConfirmDelete onConfirm={resetData} label="학생 제출·평가 모두 비우기" prompt="정말 모두 지울까요?" small={false} disabled={readOnly} />}
         </div>
       </div>
     </div>
   );
 }
 
-function TeacherRubric({ draft, setDraft }) {
+function TeacherRubric({ draft, setDraft, readOnly = false }) {
   const cats = [
     ["aiFeedback", "var(--teal)", Sparkles],
     ["peer", "var(--accent)", Users],
     ["collab", "var(--violet)", Handshake],
   ];
-  const updItem = (cat, no, field, val) => setDraft((d) => {
+  const updItem = (cat, no, field, val) => {
+    if (readOnly) return;
+    setDraft((d) => {
     const n = structuredClone(d);
     const it = n.rubric[cat].items.find((x) => x.no === no);
     it[field] = field === "name" || field.length === 2 ? val : Number(val);
     return n;
-  });
+    });
+  };
   const catMax = (cat) => (draft.rubric[cat]?.items || []).reduce((s, it) => s + (Number(it.high) || 0), 0);
   const peerM = catMax("peer"), collabM = catMax("collab"), aiM = catMax("aiFeedback");
 
   const openQs = draft.rubric.peerOpen || [];
-  const updOpen = (i, field, val) => setDraft((d) => { const n = structuredClone(d); n.rubric.peerOpen[i][field] = val; return n; });
-  const addOpen = () => setDraft((d) => { const n = structuredClone(d); n.rubric.peerOpen = n.rubric.peerOpen || []; n.rubric.peerOpen.push({ id: "q" + Date.now().toString(36), label: "새 질문", placeholder: "" }); return n; });
-  const delOpen = (i) => setDraft((d) => { const n = structuredClone(d); n.rubric.peerOpen.splice(i, 1); return n; });
+  const updOpen = (i, field, val) => {
+    if (readOnly) return;
+    setDraft((d) => { const n = structuredClone(d); n.rubric.peerOpen[i][field] = val; return n; });
+  };
+  const addOpen = () => {
+    if (readOnly) return;
+    setDraft((d) => { const n = structuredClone(d); n.rubric.peerOpen = n.rubric.peerOpen || []; n.rubric.peerOpen.push({ id: "q" + Date.now().toString(36), label: "새 질문", placeholder: "" }); return n; });
+  };
+  const delOpen = (i) => {
+    if (readOnly) return;
+    setDraft((d) => { const n = structuredClone(d); n.rubric.peerOpen.splice(i, 1); return n; });
+  };
 
   const cOpenQs = draft.rubric.collabOpen || [];
-  const updCOpen = (i, field, val) => setDraft((d) => { const n = structuredClone(d); n.rubric.collabOpen[i][field] = val; return n; });
-  const addCOpen = () => setDraft((d) => { const n = structuredClone(d); n.rubric.collabOpen = n.rubric.collabOpen || []; n.rubric.collabOpen.push({ id: "q" + Date.now().toString(36), label: "새 질문", placeholder: "" }); return n; });
-  const delCOpen = (i) => setDraft((d) => { const n = structuredClone(d); n.rubric.collabOpen.splice(i, 1); return n; });
+  const updCOpen = (i, field, val) => {
+    if (readOnly) return;
+    setDraft((d) => { const n = structuredClone(d); n.rubric.collabOpen[i][field] = val; return n; });
+  };
+  const addCOpen = () => {
+    if (readOnly) return;
+    setDraft((d) => { const n = structuredClone(d); n.rubric.collabOpen = n.rubric.collabOpen || []; n.rubric.collabOpen.push({ id: "q" + Date.now().toString(36), label: "새 질문", placeholder: "" }); return n; });
+  };
+  const delCOpen = (i) => {
+    if (readOnly) return;
+    setDraft((d) => { const n = structuredClone(d); n.rubric.collabOpen.splice(i, 1); return n; });
+  };
 
   // ----- 붙여넣기로 가져오기 -----
   const [pasteText, setPasteText] = useState("");
@@ -1393,6 +2179,7 @@ function TeacherRubric({ draft, setDraft }) {
   const [aiBusy, setAiBusy] = useState(false);
 
   const applyParsed = (parsed) => {
+    if (readOnly) return;
     const c = parsed.counts || {};
     if (!parsed.rubric || (!c.aiFeedback && !c.peer && !c.collab && !c.peerOpen)) {
       setImportInfo({ ok: false, counts: c, warnings: ["붙여넣은 글에서 평가 기준을 찾지 못했어요. 아래 형식(■ 평가 N … 상/중/하)을 확인해 주세요."] });
@@ -1413,6 +2200,7 @@ function TeacherRubric({ draft, setDraft }) {
   const importPaste = () => applyParsed(parseRubricText(pasteText));
 
   const importViaAI = async () => {
+    if (readOnly) return;
     if (!pasteText.trim()) return;
     setAiBusy(true); setImportInfo(null);
     try {
@@ -1458,12 +2246,12 @@ ${pasteText}`;
         </div>
         <textarea className="textarea" style={{ minHeight: 150, fontSize: 13, fontFamily: "ui-monospace, monospace" }}
           placeholder={runtimeOptions().rubricImportPlaceholder}
-          value={pasteText} onChange={(e) => setPasteText(e.target.value)} />
+          value={pasteText} onChange={(e) => setPasteText(e.target.value)} disabled={readOnly} />
         <div className="between" style={{ marginTop: 10, flexWrap: "wrap", gap: 8 }}>
           <span className="hint">‘형식 그대로’는 위 예시 형식, ‘AI로 정리’는 표·메모 등 자유 형식도 맞춰줍니다.</span>
           <div className="center" style={{ gap: 8 }}>
-            <button className="btn sm" disabled={aiBusy} onClick={importViaAI}>{aiBusy ? <><Loader2 className="spin" size={15} /> 정리 중…</> : <><Sparkles size={15} /> AI로 정리해서 가져오기</>}</button>
-            <button className="btn primary sm" disabled={!pasteText.trim() || aiBusy} onClick={importPaste}><ClipboardList size={15} /> 형식 그대로 가져오기</button>
+            <button className="btn sm" disabled={aiBusy || readOnly} onClick={importViaAI}>{aiBusy ? <><Loader2 className="spin" size={15} /> 정리 중…</> : <><Sparkles size={15} /> AI로 정리해서 가져오기</>}</button>
+            <button className="btn primary sm" disabled={!pasteText.trim() || aiBusy || readOnly} onClick={importPaste}><ClipboardList size={15} /> 형식 그대로 가져오기</button>
           </div>
         </div>
         {importInfo && (
@@ -1502,12 +2290,12 @@ ${pasteText}`;
             <div key={it.no} style={{ padding: "14px 0", borderTop: "1px dashed var(--line)" }}>
               <div className="row" style={{ alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
                 <span className="chip" style={{ background: "var(--surface-2)", border: "1px solid var(--line-2)", fontWeight: 800, fontSize: 13 }}>{it.no}</span>
-                <input className="input" style={{ flex: "1 1 220px" }} value={it.name} onChange={(e) => updItem(cat, it.no, "name", e.target.value)} />
+                <input className="input" style={{ flex: "1 1 220px" }} value={it.name} onChange={(e) => updItem(cat, it.no, "name", e.target.value)} disabled={readOnly} />
                 <div className="center" style={{ gap: 6 }}>
                   {["high", "mid", "low"].map((lv, i) => (
                     <div key={lv} className="center" style={{ gap: 4 }}>
                       <span className="hint" style={{ width: 22 }}>{["상", "중", "하"][i]}</span>
-                      <input className="input num" type="number" value={it[lv]} onChange={(e) => updItem(cat, it.no, lv, e.target.value)} />
+                      <input className="input num" type="number" value={it[lv]} onChange={(e) => updItem(cat, it.no, lv, e.target.value)} disabled={readOnly} />
                     </div>
                   ))}
                 </div>
@@ -1515,7 +2303,7 @@ ${pasteText}`;
               <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                 {[["hi", "상 설명"], ["mi", "중 설명"], ["lo", "하 설명"]].map(([f, ph]) => (
                   <textarea key={f} className="textarea" style={{ flex: "1 1 200px", minHeight: 60, fontSize: 13 }}
-                    placeholder={ph} value={it[f]} onChange={(e) => updItem(cat, it.no, f, e.target.value)} />
+                    placeholder={ph} value={it[f]} onChange={(e) => updItem(cat, it.no, f, e.target.value)} disabled={readOnly} />
                 ))}
               </div>
             </div>
@@ -1533,16 +2321,16 @@ ${pasteText}`;
               <div className="hint" style={{ maxWidth: 520 }}>학생이 다른 모둠 결과물에 글로 답하는 질적 평가 문항입니다. 작성한 내용은 해당 모둠에게 그대로 전달됩니다.</div>
             </div>
           </div>
-          <button className="btn sm" onClick={addOpen}><Plus size={15} /> 문항 추가</button>
+          <button className="btn sm" onClick={addOpen} disabled={readOnly}><Plus size={15} /> 문항 추가</button>
         </div>
         <div className="divider" />
         {openQs.length === 0 && <div className="hint">주관식 문항이 없습니다. ‘문항 추가’로 만들어 주세요.</div>}
         {openQs.map((q, i) => (
           <div key={q.id} style={{ padding: "12px 0", borderTop: "1px dashed var(--line)" }}>
             <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <input className="input" style={{ flex: "1 1 180px" }} placeholder="문항 제목 (예: 좋은 점)" value={q.label} onChange={(e) => updOpen(i, "label", e.target.value)} />
-              <input className="input" style={{ flex: "2 1 280px" }} placeholder="학생에게 보일 안내 문구" value={q.placeholder} onChange={(e) => updOpen(i, "placeholder", e.target.value)} />
-              <button className="btn sm ghost" onClick={() => delOpen(i)}><Trash2 size={15} /></button>
+              <input className="input" style={{ flex: "1 1 180px" }} placeholder="문항 제목 (예: 좋은 점)" value={q.label} onChange={(e) => updOpen(i, "label", e.target.value)} disabled={readOnly} />
+              <input className="input" style={{ flex: "2 1 280px" }} placeholder="학생에게 보일 안내 문구" value={q.placeholder} onChange={(e) => updOpen(i, "placeholder", e.target.value)} disabled={readOnly} />
+              <button className="btn sm ghost" onClick={() => delOpen(i)} disabled={readOnly}><Trash2 size={15} /></button>
             </div>
           </div>
         ))}
@@ -1558,16 +2346,16 @@ ${pasteText}`;
               <div className="hint" style={{ maxWidth: 520 }}>학생이 같은 모둠 친구 한 명 한 명에게 글로 남기는 문항입니다. <b>쓰고 싶은 학생만</b> 작성하며, 작성한 내용은 받는 친구에게 익명으로 전달됩니다. (자기 자신에게는 표시되지 않음)</div>
             </div>
           </div>
-          <button className="btn sm" onClick={addCOpen}><Plus size={15} /> 문항 추가</button>
+          <button className="btn sm" onClick={addCOpen} disabled={readOnly}><Plus size={15} /> 문항 추가</button>
         </div>
         <div className="divider" />
         {cOpenQs.length === 0 && <div className="hint">협업 주관식 문항이 없습니다. ‘문항 추가’로 만들면 학생 화면에 나타납니다.</div>}
         {cOpenQs.map((q, i) => (
           <div key={q.id} style={{ padding: "12px 0", borderTop: "1px dashed var(--line)" }}>
             <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <input className="input" style={{ flex: "1 1 180px" }} placeholder="문항 제목 (예: 잘한 점)" value={q.label} onChange={(e) => updCOpen(i, "label", e.target.value)} />
-              <input className="input" style={{ flex: "2 1 280px" }} placeholder="학생에게 보일 안내 문구" value={q.placeholder} onChange={(e) => updCOpen(i, "placeholder", e.target.value)} />
-              <button className="btn sm ghost" onClick={() => delCOpen(i)}><Trash2 size={15} /></button>
+              <input className="input" style={{ flex: "1 1 180px" }} placeholder="문항 제목 (예: 잘한 점)" value={q.label} onChange={(e) => updCOpen(i, "label", e.target.value)} disabled={readOnly} />
+              <input className="input" style={{ flex: "2 1 280px" }} placeholder="학생에게 보일 안내 문구" value={q.placeholder} onChange={(e) => updCOpen(i, "placeholder", e.target.value)} disabled={readOnly} />
+              <button className="btn sm ghost" onClick={() => delCOpen(i)} disabled={readOnly}><Trash2 size={15} /></button>
             </div>
           </div>
         ))}
@@ -1576,25 +2364,26 @@ ${pasteText}`;
   );
 }
 
-function ConfirmDelete({ onConfirm, label = "삭제", small = true, prompt = "삭제할까요?", Icon = Trash2 }) {
+function ConfirmDelete({ onConfirm, label = "삭제", small = true, prompt = "삭제할까요?", Icon = Trash2, disabled = false }) {
   const [armed, setArmed] = useState(false);
   const sz = small ? "sm" : "";
-  if (!armed) return <button className={`btn ${sz} ghost`} onClick={() => setArmed(true)}><Icon size={15} /> {label}</button>;
+  if (!armed) return <button className={`btn ${sz} ghost`} onClick={() => setArmed(true)} disabled={disabled}><Icon size={15} /> {label}</button>;
   return (
     <span className="center" style={{ gap: 6 }}>
       <span className="hint" style={{ color: "var(--rose)" }}>{prompt}</span>
-      <button className={`btn ${sz}`} style={{ background: "var(--rose)", color: "#fff", borderColor: "var(--rose)" }} onClick={onConfirm}>네</button>
+      <button className={`btn ${sz}`} style={{ background: "var(--rose)", color: "#fff", borderColor: "var(--rose)" }} onClick={onConfirm} disabled={disabled}>네</button>
       <button className={`btn ${sz} ghost`} onClick={() => setArmed(false)}>취소</button>
     </span>
   );
 }
 
-function TeacherGroups({ draft, setDraft }) {
+function TeacherGroups({ draft, setDraft, readOnly = false }) {
   const [cname, setCname] = useState("");
   const [gByClass, setGByClass] = useState({}); // cid -> 입력값
   const classes = draft.classes || [];
 
   const addClass = () => {
+    if (readOnly) return;
     if (!cname.trim()) return;
     setDraft((d) => {
       const n = structuredClone(d);
@@ -1604,19 +2393,26 @@ function TeacherGroups({ draft, setDraft }) {
     });
     setCname("");
   };
-  const renameClass = (cid, name) => setDraft((d) => {
+  const renameClass = (cid, name) => {
+    if (readOnly) return;
+    setDraft((d) => {
     const n = structuredClone(d);
     const c = n.classes.find((x) => x.id === cid);
     if (c) c.name = name;
     return n;
-  });
-  const delClass = (cid) => setDraft((d) => {
+    });
+  };
+  const delClass = (cid) => {
+    if (readOnly) return;
+    setDraft((d) => {
     const n = structuredClone(d);
     n.classes = (n.classes || []).filter((c) => c.id !== cid);
     n.groups = (n.groups || []).filter((g) => g.classId !== cid);
     return n;
-  });
+    });
+  };
   const addGroup = (cid) => {
+    if (readOnly) return;
     const name = (gByClass[cid] || "").trim();
     if (!name) return;
     setDraft((d) => {
@@ -1626,8 +2422,12 @@ function TeacherGroups({ draft, setDraft }) {
     });
     setGByClass((s) => ({ ...s, [cid]: "" }));
   };
-  const delGroup = (id) => setDraft((d) => ({ ...d, groups: d.groups.filter((g) => g.id !== id) }));
+  const delGroup = (id) => {
+    if (readOnly) return;
+    setDraft((d) => ({ ...d, groups: d.groups.filter((g) => g.id !== id) }));
+  };
   const addMember = (gid, name) => {
+    if (readOnly) return;
     if (!name.trim()) return;
     setDraft((d) => {
       const n = structuredClone(d);
@@ -1636,12 +2436,15 @@ function TeacherGroups({ draft, setDraft }) {
       return n;
     });
   };
-  const delMember = (gid, name) => setDraft((d) => {
+  const delMember = (gid, name) => {
+    if (readOnly) return;
+    setDraft((d) => {
     const n = structuredClone(d);
     const g = n.groups.find((x) => x.id === gid);
     g.members = g.members.filter((m) => m !== name);
     return n;
-  });
+    });
+  };
 
   return (
     <div className="fade">
@@ -1652,8 +2455,8 @@ function TeacherGroups({ draft, setDraft }) {
         </p>
         <div className="row" style={{ gap: 8 }}>
           <input className="input" placeholder="새 반 이름 (예: 3학년 2반)" value={cname}
-            onChange={(e) => setCname(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addClass()} />
-          <button className="btn primary" onClick={addClass}><Plus size={16} /> 반 추가</button>
+            onChange={(e) => setCname(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addClass()} disabled={readOnly} />
+          <button className="btn primary" onClick={addClass} disabled={readOnly}><Plus size={16} /> 반 추가</button>
         </div>
       </div>
 
@@ -1665,16 +2468,17 @@ function TeacherGroups({ draft, setDraft }) {
           <div key={c.id} className="card pad-lg" style={{ marginBottom: 16 }}>
             <div className="between" style={{ marginBottom: 2, gap: 10 }}>
               <input className="input" value={c.name} onChange={(e) => renameClass(c.id, e.target.value)}
+                disabled={readOnly}
                 style={{ fontWeight: 800, fontSize: 17, maxWidth: 280, border: "1px solid transparent", background: "transparent", padding: "4px 6px" }} />
-              <ConfirmDelete onConfirm={() => delClass(c.id)} label="반 삭제" />
+              <ConfirmDelete onConfirm={() => delClass(c.id)} label="반 삭제" disabled={readOnly} />
             </div>
             <div className="hint" style={{ marginBottom: 12 }}>모둠 {cg.length}개{cg.length > 0 ? ` · 학생 ${cg.reduce((s, g) => s + g.members.length, 0)}명` : ""}</div>
 
             <div className="row" style={{ gap: 8, marginBottom: 14 }}>
               <input className="input" placeholder="이 반에 모둠 추가 (예: 1모둠)" value={gByClass[c.id] || ""}
                 onChange={(e) => setGByClass((s) => ({ ...s, [c.id]: e.target.value }))}
-                onKeyDown={(e) => e.key === "Enter" && addGroup(c.id)} />
-              <button className="btn" onClick={() => addGroup(c.id)}><Plus size={16} /> 모둠</button>
+                onKeyDown={(e) => e.key === "Enter" && addGroup(c.id)} disabled={readOnly} />
+              <button className="btn" onClick={() => addGroup(c.id)} disabled={readOnly}><Plus size={16} /> 모둠</button>
             </div>
 
             <div className="row" style={{ flexWrap: "wrap", gap: 14 }}>
@@ -1683,18 +2487,18 @@ function TeacherGroups({ draft, setDraft }) {
                 <div key={g.id} className="card pad" style={{ flex: "1 1 300px", background: "var(--surface-2)" }}>
                   <div className="between" style={{ marginBottom: 12 }}>
                     <div className="h3">{g.name}</div>
-                    <button className="btn sm ghost" onClick={() => delGroup(g.id)}><Trash2 size={15} /></button>
+                    <button className="btn sm ghost" onClick={() => delGroup(g.id)} disabled={readOnly}><Trash2 size={15} /></button>
                   </div>
                   <div className="list-rest" style={{ marginBottom: 12 }}>
                     {g.members.length === 0 && <div className="hint">아직 모둠원이 없습니다.</div>}
                     {g.members.map((m) => (
                       <div key={m} className="checkrow" style={{ padding: "9px 12px" }}>
                         <span className="center"><UserCircle2 size={16} className="muted" /> {m}</span>
-                        <button className="btn sm ghost" onClick={() => delMember(g.id, m)}><Trash2 size={14} /></button>
+                        <button className="btn sm ghost" onClick={() => delMember(g.id, m)} disabled={readOnly}><Trash2 size={14} /></button>
                       </div>
                     ))}
                   </div>
-                  <MemberAdder onAdd={(name) => addMember(g.id, name)} />
+                  <MemberAdder onAdd={(name) => addMember(g.id, name)} disabled={readOnly} />
                 </div>
               ))}
             </div>
@@ -1704,13 +2508,13 @@ function TeacherGroups({ draft, setDraft }) {
     </div>
   );
 }
-function MemberAdder({ onAdd }) {
+function MemberAdder({ onAdd, disabled = false }) {
   const [v, setV] = useState("");
   return (
     <div className="row" style={{ gap: 6 }}>
       <input className="input" placeholder="모둠원 이름" value={v} onChange={(e) => setV(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") { onAdd(v); setV(""); } }} />
-      <button className="btn sm" onClick={() => { onAdd(v); setV(""); }}><Plus size={15} /></button>
+        onKeyDown={(e) => { if (!disabled && e.key === "Enter") { onAdd(v); setV(""); } }} disabled={disabled} />
+      <button className="btn sm" onClick={() => { onAdd(v); setV(""); }} disabled={disabled}><Plus size={15} /></button>
     </div>
   );
 }
@@ -1724,6 +2528,7 @@ function TeacherResults({ config }) {
   const [cls, setCls] = useState("all");
   const [batchPrinting, setBatchPrinting] = useState(false);
   const [stageSaving, setStageSaving] = useState("");
+  const readOnly = runtimeOptions().teacherReadOnly;
   const load = useCallback(async () => {
     setLoading(true);
     const [results, refl, stages] = await Promise.all([
@@ -1822,6 +2627,7 @@ function TeacherResults({ config }) {
   };
 
   const openStage = async (stageKey) => {
+    if (readOnly) return;
     if (selectedClassIds.length === 0) return;
     setStageSaving(stageKey);
     try {
@@ -1875,7 +2681,7 @@ function TeacherResults({ config }) {
             <button
               key={option.key}
               className={`btn sm ${selectedStage === option.key ? "primary" : ""}`}
-              disabled={!!stageSaving}
+              disabled={!!stageSaving || readOnly}
               title={option.desc}
               onClick={() => openStage(option.key)}
             >
@@ -1884,6 +2690,7 @@ function TeacherResults({ config }) {
             </button>
           ))}
         </div>
+        {readOnly && <p className="hint" style={{ marginTop: 10 }}>전시관에서는 학생 진행 단계 변경이 잠겨 있습니다.</p>}
       </div>
 
       <div className="card pad-lg" style={{ marginBottom: 18 }}>
@@ -2203,10 +3010,14 @@ function StudentApp({ config, me }) {
     report: progress.resultsSeen,
     reflect: !!reflect,
   };
+  const unlockDone = {
+    ...done,
+    peer: runtimeOptions().allowIncompletePeerStep || done.peer,
+  };
   // 순차 잠금 + 교사 개방: 이전 단계가 끝나고, 선생님이 연 단계까지만 열림
   const unlocked = {};
   let prevOk = true;
-  for (const s of STEPS) { unlocked[s.key] = prevOk && teacherUnlocked[s.key]; prevOk = prevOk && done[s.key]; }
+  for (const s of STEPS) { unlocked[s.key] = prevOk && teacherUnlocked[s.key]; prevOk = prevOk && unlockDone[s.key]; }
 
   const markResultsSeen = async () => {
     const np = { ...progress, resultsSeen: true };
@@ -2234,6 +3045,8 @@ function StudentApp({ config, me }) {
   };
 
   return (
+    <>
+    <ExpoFlowStrip context="student" active={active} />
     <div className="layout fade">
       {/* RAIL */}
       <aside className="rail">
@@ -2281,12 +3094,14 @@ function StudentApp({ config, me }) {
         )}
         {active === "result" && <StepResult config={config} me={me} draft={draftRec} onDone={refresh} goNext={goNext} nextStepOpen={nextStepOpenFor("result")} />}
         {active === "final" && <StepFinal config={config} me={me} sub={sub} draft={draftRec} onDone={refresh} goNext={goNext} nextStepOpen={nextStepOpenFor("final")} />}
-        {active === "peer" && <StepPeer config={config} me={me} peer={peer} otherGroups={otherGroups} onDone={refresh} goNext={goNext} nextStepOpen={nextStepOpenFor("peer")} />}
+        {active === "peer" && <StepPeer config={config} me={me} peer={peer} otherGroups={otherGroups} onDone={refresh} goNext={goNext} nextStepOpen={nextStepOpenFor("peer")} allowIncomplete={runtimeOptions().allowIncompletePeerStep} />}
         {active === "collab" && <StepCollab config={config} me={me} collab={collab} targets={collabTargets} onDone={refresh} goNext={goNext} nextStepOpen={nextStepOpenFor("collab")} />}
         {active === "report" && <StepReport config={config} me={me} draftRec={draftRec} reflect={reflect} onSeen={markResultsSeen} goNext={goNext} done={done} nextStepOpen={nextStepOpenFor("report")} />}
         {active === "reflect" && <StepReflect config={config} me={me} reflect={reflect} onDone={refresh} />}
       </main>
+      <ExpoGuide context="student" step={active} />
     </div>
+    </>
   );
 }
 
@@ -2745,7 +3560,7 @@ function StepFinal({ config, me, sub, draft, onDone, goNext, nextStepOpen = true
 }
 
 /* ---------- STEP 3: 동료평가 ---------- */
-function StepPeer({ config, me, peer, otherGroups, onDone, goNext, nextStepOpen = true }) {
+function StepPeer({ config, me, peer, otherGroups, onDone, goNext, nextStepOpen = true, allowIncomplete = false }) {
   const [target, setTarget] = useState(null);
   const items = peerItems(config);
   const evals = peer?.evals || {};
@@ -2770,11 +3585,14 @@ function StepPeer({ config, me, peer, otherGroups, onDone, goNext, nextStepOpen 
   }
 
   const allDone = otherGroups.every((g) => evals[g.id]);
+  const canMoveNext = nextStepOpen && (allDone || allowIncomplete);
   const drafts = peer?.drafts || {};
   return (
     <div className="fade">
       <StepHeader idx={3} title="동료평가" color="var(--accent)" Icon={Users}
-        sub="다른 모둠의 결과물을 읽고, 평가 기준으로 점수를 매기고 좋은 점·아쉬운 점을 적어 주세요. 모든 모둠을 평가하면 다음 단계가 열려요." />
+        sub={allowIncomplete
+          ? "다른 모둠의 결과물을 읽고 평가합니다. 필요한 만큼 평가한 뒤 협업평가로 이동할 수 있어요."
+          : "다른 모둠의 결과물을 읽고, 평가 기준으로 점수를 매기고 좋은 점·아쉬운 점을 적어 주세요. 모든 모둠을 평가하면 다음 단계가 열려요."} />
       <div className="list-rest" style={{ marginBottom: 16 }}>
         {otherGroups.map((g) => {
           const ev = evals[g.id];
@@ -2799,11 +3617,15 @@ function StepPeer({ config, me, peer, otherGroups, onDone, goNext, nextStepOpen 
       </div>
       <div className="between">
         <span className="pill">{Object.keys(evals).length} / {otherGroups.length} 모둠 평가함</span>
-        <button className="btn primary lg" disabled={!allDone || !nextStepOpen} onClick={goNext}>
+        <button className="btn primary lg" disabled={!canMoveNext} onClick={goNext}>
           {nextStepOpen ? <>다음: 협업평가 <ChevronRight size={17} /></> : <><Lock size={17} /> 선생님이 열면 이동</>}
         </button>
       </div>
-      {!allDone && <p className="hint" style={{ marginTop: 10 }}>모든 모둠을 평가하면 다음 단계로 넘어갈 수 있어요.</p>}
+      {!allDone && (
+        <p className="hint" style={{ marginTop: 10 }}>
+          {allowIncomplete ? "아직 평가하지 않은 모둠이 있어도 다음 단계로 넘어갈 수 있어요." : "모든 모둠을 평가하면 다음 단계로 넘어갈 수 있어요."}
+        </p>
+      )}
     </div>
   );
 }
