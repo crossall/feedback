@@ -7,6 +7,7 @@ import {
 } from "@/lib/server/project4-auth";
 import {
   getProject4AiReview,
+  getProject4AiGeneration,
   getProject4Config,
   getProject4Final,
   getProject4GroupPeers,
@@ -183,7 +184,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (action === "studentWorkspace" || action === "representativeWorkspace" || action === "presentationWorkspace" || action === "submitPeer" || action === "saveRepresentative" || action === "updateRepresentativeSelection" || action === "saveRepresentativeReason" || action === "savePresentationReview" || action === "updatePresentationReview" || action === "saveAiReview" || action === "saveFinal" || action === "saveReflection") {
+    if (action === "studentWorkspace" || action === "representativeWorkspace" || action === "presentationWorkspace" || action === "aiWorkspace" || action === "submitPeer" || action === "saveRepresentative" || action === "updateRepresentativeSelection" || action === "saveRepresentativeReason" || action === "savePresentationReview" || action === "updatePresentationReview" || action === "saveAiReview" || action === "saveFinal" || action === "saveReflection") {
       const access = readProject4Token(authToken, "student");
       const config = await getProject4Config();
       const found = studentFromConfig(config, access.classId || "", access.groupId || "", access.studentId || "");
@@ -201,6 +202,7 @@ export async function POST(request: Request) {
         savePresentationReview: 4,
         updatePresentationReview: 4,
         presentationWorkspace: 4,
+        aiWorkspace: 5,
         saveAiReview: 5,
         saveFinal: 6,
         saveReflection: 8,
@@ -216,6 +218,17 @@ export async function POST(request: Request) {
       if (action === "presentationWorkspace") {
         return NextResponse.json({
           presentation: studentPresentationReview(await getProject4PresentationReview(classId, groupId)),
+        });
+      }
+
+      if (action === "aiWorkspace") {
+        const [aiReview, generation] = await Promise.all([
+          getProject4AiReview(classId, groupId),
+          getProject4AiGeneration(classId, groupId),
+        ]);
+        return NextResponse.json({
+          aiReview: studentAiReview(aiReview),
+          generating: Boolean(generation),
         });
       }
 
@@ -381,6 +394,9 @@ export async function POST(request: Request) {
         const review = body.review as Project4AiReview | undefined;
         const existing = await getProject4AiReview(classId, groupId);
         if (!existing) throw new Error("먼저 모둠 스크립트를 올려 AI 피드백을 받아 주세요.");
+        if ((review?.revision || 1) !== (existing.revision || 1) || review?.generatedAt !== (existing.generatedAt || existing.updatedAt)) {
+          throw new Error("모둠원이 새 피드백을 만들었습니다. 최신 피드백을 확인한 뒤 다시 판단해 주세요.");
+        }
         const submittedFeedbacks = Array.isArray(review?.feedbacks) ? review.feedbacks : [];
         const submittedById = new Map(submittedFeedbacks.map((item) => [text(item.id, 100), item]));
         const validBases = new Set(["measurement", "experiment", "criteria", "unsure"]);

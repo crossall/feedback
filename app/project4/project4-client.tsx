@@ -705,12 +705,54 @@ function AiStep({ config, group, me, token, workspace, setWorkspace, busy, actio
   const [generating, setGenerating] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [review, setReview] = useState<Project4AiReview | null>(workspace.aiReview);
+  const [groupGenerating, setGroupGenerating] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState("");
   const [error, setError] = useState("");
+  const [syncError, setSyncError] = useState("");
   const sheetRef = useRef<HTMLDivElement>(null);
+  const reviewRef = useRef<Project4AiReview | null>(workspace.aiReview);
+  const reviewDirtyRef = useRef(false);
+
+  const applySharedAiReview = useCallback((sharedReview: Project4AiReview | null) => {
+    const current = reviewRef.current;
+    if (!sharedReview && current) return;
+    const isNewGeneration = Boolean(sharedReview && (!current
+      || sharedReview.revision !== current.revision
+      || sharedReview.generatedAt !== current.generatedAt));
+    if (reviewDirtyRef.current && !isNewGeneration) return;
+    if (isNewGeneration) reviewDirtyRef.current = false;
+    reviewRef.current = sharedReview;
+    setReview(sharedReview);
+    setWorkspace((currentWorkspace) => ({ ...currentWorkspace, aiReview: sharedReview }));
+    setLastSyncedAt(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+  }, [setWorkspace]);
+
+  useEffect(() => {
+    if (generating) return;
+    let active = true;
+    async function loadSharedAiReview() {
+      try {
+        const result = await project4Api<{ aiReview: Project4AiReview | null; generating: boolean }>("aiWorkspace", { token });
+        if (!active) return;
+        setGroupGenerating(result.generating);
+        applySharedAiReview(result.aiReview);
+        setSyncError("");
+      } catch (caught) {
+        if (active) setSyncError(caught instanceof Error ? caught.message : "모둠 AI 피드백을 불러오지 못했습니다.");
+      }
+    }
+    void loadSharedAiReview();
+    const timer = window.setInterval(() => void loadSharedAiReview(), 2500);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [applySharedAiReview, generating, token]);
 
   async function generate() {
     if (!file) return;
     setGenerating(true);
+    setGroupGenerating(true);
     setError("");
     try {
       const pdfData = await fileAsDataUrl(file);
@@ -721,28 +763,39 @@ function AiStep({ config, group, me, token, workspace, setWorkspace, busy, actio
       });
       const data = await response.json() as { review?: Project4AiReview; error?: string };
       if (!response.ok || !data.review) throw new Error(data.error || "모둠 AI 피드백을 만들지 못했습니다.");
+      reviewDirtyRef.current = false;
+      reviewRef.current = data.review;
       setReview(data.review);
-      setWorkspace({ ...workspace, aiReview: data.review });
+      setWorkspace((current) => ({ ...current, aiReview: data.review || null }));
+      setLastSyncedAt(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
       setFile(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "모둠 AI 피드백을 만들지 못했습니다.");
     } finally {
       setGenerating(false);
+      setGroupGenerating(false);
     }
   }
 
   function updateFeedback(id: string, patch: Partial<Project4AiFeedback>) {
     if (!review) return;
-    setReview({
+    reviewDirtyRef.current = true;
+    const nextReview = {
       ...review,
       feedbacks: review.feedbacks.map((item) => item.id === id ? { ...item, ...patch } : item),
-    });
+    };
+    reviewRef.current = nextReview;
+    setReview(nextReview);
   }
 
   async function saveReview() {
     if (!review) return;
     const loaded = await action("saveAiReview", { review });
-    if (loaded?.aiReview) setReview(loaded.aiReview);
+    if (loaded?.aiReview) {
+      reviewDirtyRef.current = false;
+      reviewRef.current = loaded.aiReview;
+      setReview(loaded.aiReview);
+    }
   }
 
   async function downloadPdf() {
@@ -844,16 +897,17 @@ function AiStep({ config, group, me, token, workspace, setWorkspace, busy, actio
   const complete = review?.feedbacks.every((item) => typeof item.accept === "boolean" && item.basis && item.reason?.trim());
   return <>
     <StepTitle number={5} title="모둠 스크립트의 AI 피드백 검토하기" text="모둠 대본 한 편에서 피드백을 받고, 무엇을 반영할지 배운 근거로 함께 결정하세요." icon={<Sparkles />} />
+    <div className={`${styles.presentationNotice} ${styles.sharedAiNotice}`}><Users size={18} /><div><b>모둠 공용 AI 피드백입니다.</b><span>{syncError || "한 명이 스크립트를 올리면 같은 모둠원 화면에도 동일한 피드백이 자동으로 나타납니다."}</span></div><strong>{generating || groupGenerating ? "분석 중" : review ? `${review.revision || 1}차 공유됨` : lastSyncedAt ? "대기 중" : "확인 중"}</strong></div>
     <div className={styles.groupFeedbackToolbar}>
-      <label className={styles.filePicker}><Upload size={25} /><div><b>{file?.name || (review ? "고친 모둠 스크립트 PDF 선택" : "모둠 스크립트 PDF 선택")}</b><span>3MB 이하 PDF이며, 분석 후 사이트에 원본 파일을 저장하지 않습니다.</span></div><input type="file" accept="application/pdf" onChange={(event: ChangeEvent<HTMLInputElement>) => { const next = event.target.files?.[0] || null; if (next && next.size > 3 * 1024 * 1024) { setError("PDF는 3MB 이하여야 합니다."); setFile(null); return; } setError(""); setFile(next); }} /></label>
-      <button className={styles.primaryButton} type="button" onClick={generate} disabled={!file || generating}>{generating ? <><Loader2 className={styles.spin} /> 스크립트를 살펴보는 중...</> : <><Sparkles size={16} /> {review ? "새 피드백 다시 받기" : "AI 피드백 받기"}</>}</button>
+      <label className={styles.filePicker}><Upload size={25} /><div><b>{file?.name || (review ? "고친 모둠 스크립트 PDF 선택" : "모둠 스크립트 PDF 선택")}</b><span>3MB 이하 PDF이며, 분석 후 사이트에 원본 파일을 저장하지 않습니다.</span></div><input type="file" accept="application/pdf" disabled={generating || groupGenerating} onChange={(event: ChangeEvent<HTMLInputElement>) => { const next = event.target.files?.[0] || null; if (next && next.size > 3 * 1024 * 1024) { setError("PDF는 3MB 이하여야 합니다."); setFile(null); return; } setError(""); setFile(next); }} /></label>
+      <button className={styles.primaryButton} type="button" onClick={generate} disabled={!file || generating || groupGenerating}>{generating ? <><Loader2 className={styles.spin} /> 스크립트를 살펴보는 중...</> : groupGenerating ? <><Loader2 className={styles.spin} /> 모둠원이 분석 중...</> : <><Sparkles size={16} /> {review ? "새 대본으로 다시 받기" : "AI 피드백 받기"}</>}</button>
       {review && <button className={styles.outlineButton} type="button" onClick={downloadPdf} disabled={downloading}>{downloading ? <Loader2 className={styles.spin} /> : <Download size={16} />} 평가지 PDF</button>}
     </div>
     {error && <InlineError text={error} />}
     {review ? <>
       <div className={styles.groupFeedbackMeta}><div><b>{review.revision || 1}차 모둠 AI 피드백</b><span>{review.fileName}</span></div><small>{new Date(review.generatedAt || review.updatedAt).toLocaleString("ko-KR")}</small></div>
       <div className={styles.aiFeedbackList}>{review.feedbacks.map((feedback, index) => <article key={feedback.id}><div className={styles.aiFeedbackHead}><span>{index + 1}</span><div><h3>{feedback.title}</h3><small>관련 기준 {feedback.criterionNumbers?.join(", ") || "-"}</small></div></div><p>{feedback.feedback}</p><blockquote><b>스크립트에서 확인한 근거</b>{feedback.evidence}</blockquote><div className={styles.decisionRow}><button type="button" className={feedback.accept === true ? styles.activeYes : ""} onClick={() => updateFeedback(feedback.id, { accept: true })}>O 반영</button><button type="button" className={feedback.accept === false ? styles.activeNo : ""} onClick={() => updateFeedback(feedback.id, { accept: false })}>X 반영하지 않음</button></div><label><span>무엇을 보고 정했나요?</span><select value={feedback.basis || ""} onChange={(event) => updateFeedback(feedback.id, { basis: event.target.value as Project4AiFeedback["basis"] })}><option value="">근거 선택</option><option value="measurement">① 우리가 측정한 자료</option><option value="experiment">② 지구본 실험 결과</option><option value="criteria">③ 우리가 만든 평가 기준</option><option value="unsure">④ 잘 모르겠음</option></select></label><label><span>그렇게 정한 까닭</span><textarea rows={3} value={feedback.reason || ""} onChange={(event) => updateFeedback(feedback.id, { reason: event.target.value })} placeholder="측정 자료, 지구본 실험, 평가 기준을 근거로 써 보세요." /></label></article>)}</div>
-      <label className={styles.wrongFeedback}><span>다섯 개 중 잘못된 피드백이 있었다면 몇 번이라고 생각하나요? 그렇게 본 까닭은?</span><textarea rows={4} value={review.wrongFeedback} onChange={(event) => setReview({ ...review, wrongFeedback: event.target.value })} /></label>
+      <label className={styles.wrongFeedback}><span>다섯 개 중 잘못된 피드백이 있었다면 몇 번이라고 생각하나요? 그렇게 본 까닭은?</span><textarea rows={4} value={review.wrongFeedback} onChange={(event) => { reviewDirtyRef.current = true; const nextReview = { ...review, wrongFeedback: event.target.value }; reviewRef.current = nextReview; setReview(nextReview); }} /></label>
       <div className={styles.groupFeedbackActions}><p>모두 반영할 필요는 없습니다. 판단이 어려우면 측정 자료나 지구본 실험으로 직접 확인하세요.</p><button className={styles.primaryButton} type="button" disabled={busy || !complete} onClick={saveReview}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 모둠 판단 저장</button></div>
       <GroupFeedbackPdf ref={sheetRef} config={config} group={group} me={me} review={review} />
     </> : <div className={styles.empty}>모둠 스크립트 PDF 한 편을 올리면 AI 피드백 5개와 검토지가 여기에 표시됩니다.</div>}

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { get, list, put } from "@vercel/blob";
+import { del, get, list, put } from "@vercel/blob";
 import {
   normalizeProject4Config,
   project4DefaultConfig,
@@ -280,6 +280,49 @@ export async function saveProject4AiReview(value: Project4AiReview) {
 
 export async function getProject4AiReview(classId: string, groupId: string) {
   return readJson<Project4AiReview>(`ai/${classId}/${groupId}.json`);
+}
+
+type Project4AiGeneration = {
+  classId: string;
+  groupId: string;
+  generationId: string;
+  submittedById: string;
+  submittedByName: string;
+  startedAt: string;
+  expiresAt: string;
+};
+
+function project4AiGenerationPath(classId: string, groupId: string) {
+  return `ai-generation/${classId}/${groupId}.json`;
+}
+
+export async function getProject4AiGeneration(classId: string, groupId: string) {
+  const generation = await readJson<Project4AiGeneration>(project4AiGenerationPath(classId, groupId));
+  return generation && generation.expiresAt > new Date().toISOString() ? generation : null;
+}
+
+export async function startProject4AiGeneration(value: Project4AiGeneration) {
+  const path = project4AiGenerationPath(value.classId, value.groupId);
+  const existing = await readJson<Project4AiGeneration>(path);
+  if (existing && existing.expiresAt > new Date().toISOString()) return false;
+  if (existing) await del(`${basePath}${path}`);
+  try {
+    await put(`${basePath}${path}`, JSON.stringify(value), {
+      access: "private",
+      addRandomSuffix: false,
+      allowOverwrite: false,
+      contentType: "application/json",
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function finishProject4AiGeneration(classId: string, groupId: string, generationId: string) {
+  const path = project4AiGenerationPath(classId, groupId);
+  const existing = await readJson<Project4AiGeneration>(path);
+  if (existing?.generationId === generationId) await del(`${basePath}${path}`);
 }
 
 export async function saveProject4Final(value: Project4FinalScript) {

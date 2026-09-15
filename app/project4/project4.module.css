@@ -1451,6 +1451,10 @@
   margin-bottom: 18px;
 }
 
+.sharedAiNotice {
+  margin-bottom: 16px;
+}
+
 .groupFeedbackToolbar .filePicker {
   min-height: 92px;
 }

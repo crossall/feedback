@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { readProject4Token } from "@/lib/server/project4-auth";
 import {
   getProject4AiReview,
   getProject4Config,
+  finishProject4AiGeneration,
   saveProject4AiReview,
+  startProject4AiGeneration,
 } from "@/lib/server/project4-store";
 import { getTeacherApiKeys } from "@/lib/server/teacher-store";
 import type { Project4AiFeedback, Project4AiReview } from "@/lib/project4";
@@ -55,6 +58,7 @@ function parseFeedbacks(raw: string): GeneratedFeedback[] {
 }
 
 export async function POST(request: Request) {
+  let generationLock: { classId: string; groupId: string; generationId: string } | null = null;
   try {
     const body = await request.json() as { token?: string; fileName?: string; pdfData?: string };
     const access = readProject4Token(body.token || "", "student");
@@ -68,6 +72,8 @@ export async function POST(request: Request) {
     if (!group || !student) {
       return NextResponse.json({ error: "학생 정보를 다시 확인해 주세요." }, { status: 400 });
     }
+    const classId = access.classId || "";
+    const groupId = access.groupId || "";
 
     const rawPdfData = String(body.pdfData || "");
     if (rawPdfData.length > 4_100_000) {
@@ -86,6 +92,25 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+
+    const generationId = randomUUID();
+    const startedAt = new Date();
+    const acquired = await startProject4AiGeneration({
+      classId,
+      groupId,
+      generationId,
+      submittedById: access.studentId || "",
+      submittedByName: student.name,
+      startedAt: startedAt.toISOString(),
+      expiresAt: new Date(startedAt.getTime() + 3 * 60 * 1000).toISOString(),
+    });
+    if (!acquired) {
+      return NextResponse.json(
+        { error: "같은 모둠원이 이미 AI 피드백을 만들고 있습니다. 잠시 기다려 주세요." },
+        { status: 409 },
+      );
+    }
+    generationLock = { classId, groupId, generationId };
 
     const criteriaText = config.criteria.map((item, index) => `${index + 1}. ${item}`).join("\n");
     const prompt = `당신은 초등학교 6학년 과학 수업에서 AI 피드백을 비판적으로 검토하는 활동지를 만드는 조력자입니다.
@@ -180,8 +205,6 @@ ${criteriaText}
       throw new Error("AI 피드백 내용이 완전하지 않습니다. 다시 요청해 주세요.");
     }
 
-    const classId = access.classId || "";
-    const groupId = access.groupId || "";
     const existing = await getProject4AiReview(classId, groupId);
     const now = new Date().toISOString();
     const review: Project4AiReview = {
@@ -205,5 +228,13 @@ ${criteriaText}
       { error: error instanceof Error ? error.message : "모둠 AI 피드백을 만들지 못했습니다." },
       { status: 400 },
     );
+  } finally {
+    if (generationLock) {
+      await finishProject4AiGeneration(
+        generationLock.classId,
+        generationLock.groupId,
+        generationLock.generationId,
+      ).catch((error) => console.error("Project4 AI generation lock cleanup failed:", error));
+    }
   }
 }
