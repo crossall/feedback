@@ -123,9 +123,12 @@ export const project4DefaultCriteria = [
   "계절 변화를 처음 배우는 5학년이 이해할 수 있도록 쉬운 말, 알맞은 목소리와 속도로 설명했다.",
 ];
 
+const project4LegacyDescription = "측정과 지구본 실험을 근거로 계절이 바뀌는 까닭을 설명하고, 친구와 후배의 반응을 바탕으로 설명을 다듬습니다.";
+export const project4DefaultDescription = "측정과 지구본 실험을 근거로 계절이 바뀌는 까닭을 설명합니다.";
+
 export const project4DefaultConfig: Project4Config = {
   title: "계절의 비밀",
-  description: "측정과 지구본 실험을 근거로 계절이 바뀌는 까닭을 설명하고, 친구와 후배의 반응을 바탕으로 설명을 다듬습니다.",
+  description: project4DefaultDescription,
   openStage: 1,
   criteria: project4DefaultCriteria,
   classes: [],
@@ -140,9 +143,10 @@ export function normalizeProject4Config(value?: Partial<Project4Config>): Projec
   const criteria = Array.isArray(value?.criteria)
     ? value.criteria.map((item) => String(item).trim()).filter(Boolean).slice(0, 6)
     : [];
+  const description = value?.description?.trim();
   return {
     title: value?.title?.trim() || project4DefaultConfig.title,
-    description: value?.description?.trim() || project4DefaultConfig.description,
+    description: !description || description === project4LegacyDescription ? project4DefaultDescription : description,
     openStage: Math.max(1, Math.min(7, Math.round(Number(value?.openStage) || 1))),
     criteria: criteria.length === 6 ? criteria : [...project4DefaultCriteria],
     classes: Array.isArray(value?.classes)
