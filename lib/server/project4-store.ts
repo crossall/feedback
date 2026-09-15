@@ -13,6 +13,7 @@ import {
   type Project4PresentationRating,
   type Project4Reflection,
   type Project4Representative,
+  type Project4RepresentativeReason,
 } from "@/lib/project4";
 
 const basePath = "project4/";
@@ -71,8 +72,93 @@ export async function saveProject4Representative(value: Project4Representative) 
   await writeJson(`representative/${value.classId}/${value.groupId}.json`, value);
 }
 
+type Project4RepresentativeSelectionRecord = Omit<Project4Representative, "reason" | "reasons">;
+
+type Project4RepresentativeReasonRecord = Project4RepresentativeReason & {
+  classId: string;
+  groupId: string;
+};
+
+export async function saveProject4RepresentativeSelection(value: Project4RepresentativeSelectionRecord) {
+  await writeJson(`representative-selection/${value.classId}/${value.groupId}.json`, value);
+}
+
+export async function saveProject4RepresentativeReason(value: Project4RepresentativeReasonRecord) {
+  await writeJson(`representative-reason/${value.classId}/${value.groupId}/${value.studentId}.json`, value);
+}
+
+function composeProject4Representative(
+  legacy: Project4Representative | null,
+  selection: Project4RepresentativeSelectionRecord | null,
+  savedReasons: Project4RepresentativeReasonRecord[],
+): Project4Representative | null {
+  const selected = selection || legacy;
+  if (!selected) return null;
+
+  const reasonMap = new Map<string, Project4RepresentativeReason>();
+  if (legacy?.reason && legacy.submittedById) {
+    reasonMap.set(legacy.submittedById, {
+      studentId: legacy.submittedById,
+      studentName: legacy.submittedByName,
+      selectedStudentId: legacy.selectedStudentId,
+      selectedStudentName: legacy.selectedStudentName,
+      reason: legacy.reason,
+      updatedAt: legacy.updatedAt,
+    });
+  }
+  for (const reason of savedReasons) {
+    reasonMap.set(reason.studentId, {
+      studentId: reason.studentId,
+      studentName: reason.studentName,
+      selectedStudentId: reason.selectedStudentId,
+      selectedStudentName: reason.selectedStudentName,
+      reason: reason.reason,
+      updatedAt: reason.updatedAt,
+    });
+  }
+  const reasons = Array.from(reasonMap.values()).sort((a, b) => a.studentName.localeCompare(b.studentName, "ko"));
+
+  return {
+    classId: selected.classId,
+    groupId: selected.groupId,
+    selectedStudentId: selected.selectedStudentId,
+    selectedStudentName: selected.selectedStudentName,
+    reason: reasons.map((item) => item.reason).join("\n"),
+    reasons,
+    submittedById: selected.submittedById,
+    submittedByName: selected.submittedByName,
+    updatedAt: selected.updatedAt,
+  };
+}
+
 export async function getProject4Representative(classId: string, groupId: string) {
-  return readJson<Project4Representative>(`representative/${classId}/${groupId}.json`);
+  const [legacy, selection, reasons] = await Promise.all([
+    readJson<Project4Representative>(`representative/${classId}/${groupId}.json`),
+    readJson<Project4RepresentativeSelectionRecord>(`representative-selection/${classId}/${groupId}.json`),
+    listJson<Project4RepresentativeReasonRecord>(`representative-reason/${classId}/${groupId}/`),
+  ]);
+  return composeProject4Representative(legacy, selection, reasons);
+}
+
+async function getProject4Representatives() {
+  const [legacy, selections, reasons] = await Promise.all([
+    listJson<Project4Representative>("representative/"),
+    listJson<Project4RepresentativeSelectionRecord>("representative-selection/"),
+    listJson<Project4RepresentativeReasonRecord>("representative-reason/"),
+  ]);
+  const keys = new Set<string>();
+  legacy.forEach((item) => keys.add(`${item.classId}\u0000${item.groupId}`));
+  selections.forEach((item) => keys.add(`${item.classId}\u0000${item.groupId}`));
+  reasons.forEach((item) => keys.add(`${item.classId}\u0000${item.groupId}`));
+  return Array.from(keys).flatMap((key) => {
+    const [classId, groupId] = key.split("\u0000");
+    const representative = composeProject4Representative(
+      legacy.find((item) => item.classId === classId && item.groupId === groupId) || null,
+      selections.find((item) => item.classId === classId && item.groupId === groupId) || null,
+      reasons.filter((item) => item.classId === classId && item.groupId === groupId),
+    );
+    return representative ? [representative] : [];
+  });
 }
 
 export async function saveProject4PresentationReview(value: Project4PresentationReview) {
@@ -223,7 +309,7 @@ export async function getProject4Reflection(classId: string, groupId: string, st
 export async function getProject4TeacherData() {
   const [peer, representatives, presentations, ai, finals, juniors, reflections] = await Promise.all([
     listJson<Project4PeerResponse>("peer/"),
-    listJson<Project4Representative>("representative/"),
+    getProject4Representatives(),
     getProject4PresentationReviews(),
     listJson<Project4AiReview>("ai/"),
     listJson<Project4FinalScript>("final/"),

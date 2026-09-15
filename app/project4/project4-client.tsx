@@ -28,7 +28,7 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { ChangeEvent, FormEvent, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import {
   project4DefaultConfig,
   project4Id,
@@ -44,6 +44,7 @@ import {
   type Project4PresentationReview,
   type Project4Reflection,
   type Project4Representative,
+  type Project4RepresentativeReason,
 } from "@/lib/project4";
 import styles from "./project4.module.css";
 
@@ -53,7 +54,9 @@ type TeacherTab = "setup" | "stages" | "results";
 type StudentWorkspace = {
   submittedTargetIds: string[];
   received: Array<{ id: string; good: string; blocked: string }>;
-  representative: Pick<Project4Representative, "selectedStudentId" | "selectedStudentName" | "reason"> | null;
+  representative: (Pick<Project4Representative, "selectedStudentId" | "selectedStudentName" | "updatedAt"> & {
+    reasons: Project4RepresentativeReason[];
+  }) | null;
   presentation: Project4PresentationReview | null;
   aiReview: Project4AiReview | null;
   final: Project4FinalScript | null;
@@ -357,7 +360,7 @@ function TeacherResults({ config, data, refresh, busy }: { config: Project4Confi
       ["동료평가", data.peer.length], ["대표 선정", data.representatives.length], ["발표 평가", data.presentations.length], ["모둠 AI", data.ai.length], ["후배 응답", data.juniors.length], ["자기평가", data.reflections.length],
     ].map(([label, value]) => <div key={String(label)}><span>{label}</span><strong>{value}</strong></div>)}<button type="button" onClick={refresh} disabled={busy}><RefreshCw className={busy ? styles.spin : ""} size={16} /> 새로고침</button></div>
     <ResultSection title="모둠 내 동료평가 · 교사 실명 확인" empty={data.peer.length === 0}>{data.peer.map((item) => <article className={styles.record} key={item.id}><div className={styles.recordMeta}><b>{item.evaluatorName}</b><span>→ {item.targetName}</span><small>{classLabel(config, item.classId)} · {groupLabel(config, item.groupId)}</small></div><div><p><strong>잘 전달된 부분</strong>{item.good}</p><p><strong>이해가 막힌 부분</strong>{item.blocked}</p></div></article>)}</ResultSection>
-    <ResultSection title="대표 작품 선정" empty={data.representatives.length === 0}>{data.representatives.map((item) => <article className={styles.record} key={`${item.classId}-${item.groupId}`}><div className={styles.recordMeta}><b>{item.selectedStudentName} 작품</b><span>{groupLabel(config, item.groupId)}</span><small>입력: {item.submittedByName}</small></div><div><p><strong>선정 이유</strong>{item.reason}</p></div></article>)}</ResultSection>
+    <ResultSection title="대표 작품 선정" empty={data.representatives.length === 0}>{data.representatives.map((item) => <article className={styles.record} key={`${item.classId}-${item.groupId}`}><div className={styles.recordMeta}><b>{item.selectedStudentName} 작품</b><span>{classLabel(config, item.classId)} · {groupLabel(config, item.groupId)}</span><small>마지막 선택: {item.submittedByName}</small></div><div>{(item.reasons || []).length === 0 ? <p><strong>선정 이유</strong>{item.reason || "아직 입력된 이유가 없습니다."}</p> : (item.reasons || []).map((reason) => <p key={reason.studentId}><strong>{reason.studentName} · {reason.selectedStudentName} 작품</strong>{reason.reason}</p>)}</div></article>)}</ResultSection>
     <ResultSection title="다른 모둠 발표 평가 · 교사 실명 확인" empty={data.presentations.length === 0}>{data.presentations.map((review) => <article className={styles.presentationRecord} key={`${review.classId}-${review.evaluatorGroupId}`}><h3>{classLabel(config, review.classId)} · {review.evaluatorGroupName}<small>마지막 입력: {review.submittedByName} · {new Date(review.updatedAt).toLocaleString("ko-KR")}</small></h3>{review.targets.map((target) => <div className={styles.presentationResultTarget} key={target.targetGroupId}><b>{target.targetGroupName}</b><div>{target.ratings.map((rating, index) => <span key={index}>{index + 1} {rating ? presentationRatingLabels[rating] : "미선택"}</span>)}</div></div>)}{review.memorable && <p><strong>기억해 두고 싶은 점</strong>{review.memorable}</p>}</article>)}</ResultSection>
     <ResultSection title="모둠 AI 피드백 검토 · 교사용 정답" empty={data.ai.length === 0}>{data.ai.map((review) => <article className={styles.aiRecord} key={`${review.classId}-${review.groupId}`}><h3>{classLabel(config, review.classId)} · {groupLabel(config, review.groupId)} <small>{review.revision || 1}차 · {review.fileName} · 입력: {review.submittedByName}</small></h3>{review.feedbacks.map((feedback, index) => <div key={feedback.id}><b>{index + 1}. {feedback.title}</b><span className={feedback.accept === true ? styles.accept : styles.reject}>{feedback.accept === true ? "학생 O" : feedback.accept === false ? "학생 X" : "미응답"}</span><p><strong>정답: {feedback.isValid === true ? "O" : feedback.isValid === false ? "X" : "기존 기록"}</strong>{feedback.teacherExplanation || "교사용 해설이 없는 기존 기록입니다."}<br /><small>학생 근거: {feedback.basis || "미선택"} · 학생 이유: {feedback.reason || "미입력"}</small></p></div>)}{review.wrongFeedback && <p className={styles.wrongFeedback}><strong>잘못되었다고 본 피드백</strong>{review.wrongFeedback}</p>}</article>)}</ResultSection>
     <ResultSection title="최종 대본" empty={data.finals.length === 0}>{data.finals.map((item) => <article className={styles.record} key={`${item.classId}-${item.groupId}`}><div className={styles.recordMeta}><b>{classLabel(config, item.classId)} · {groupLabel(config, item.groupId)}</b><span>입력: {item.submittedByName}</span><small>{item.mode === "pdf" ? item.fileName : "직접 작성"}</small></div><div>{item.mode === "text" ? <p><strong>최종 대본</strong>{item.text}</p> : item.fileData ? <a className={styles.outlineButton} href={item.fileData} download={item.fileName || "최종-대본.pdf"}><FileText size={15} /> PDF 내려받기</a> : <p>PDF 파일 정보가 없습니다.</p>}</div></article>)}</ResultSection>
@@ -391,7 +394,7 @@ function StudentStudio({ config, setConfig, me, token, workspace, setWorkspace }
   return <section className={styles.studentShell}><div className={styles.studentHead}><div><span className={styles.kicker}>MY SEASON PROJECT</span><h1>{me.name}의 평가 여정</h1><p>{classLabel(config, me.classId)} · {group?.name}</p></div><div className={styles.openNotice}><Lock size={15} /><span>{config.openStage}단계까지 열렸어요</span><button type="button" onClick={() => void action("studentWorkspace")} disabled={busy} aria-label="공개 단계와 결과 새로고침" title="새로고침"><RefreshCw className={busy ? styles.spin : ""} size={15} /></button></div></div><nav className={styles.journey}>{project4Stages.map((label, index) => { const number = index + 1; const locked = number > config.openStage; return <button key={label} disabled={locked} className={stage === number ? styles.active : ""} onClick={() => setStage(number)}><span>{locked ? <Lock size={13} /> : number}</span><small>{label}</small></button>; })}</nav>{error && <InlineError text={error} />}<div className={styles.studentWork}>
     {stage === 1 && <PeerStep config={config} group={group} me={me} workspace={workspace} busy={busy} action={action} />}
     {stage === 2 && <ReceivedStep workspace={workspace} />}
-    {stage === 3 && <RepresentativeStep group={group} workspace={workspace} busy={busy} action={action} />}
+    {stage === 3 && <RepresentativeStep group={group} me={me} token={token} workspace={workspace} setWorkspace={setWorkspace} />}
     {stage === 4 && <PresentationReviewStep config={config} me={me} token={token} workspace={workspace} setWorkspace={setWorkspace} />}
     {stage === 5 && <AiStep key={workspace.aiReview?.updatedAt || "empty"} config={config} group={group} me={me} token={token} workspace={workspace} setWorkspace={setWorkspace} busy={busy} action={action} />}
     {stage === 6 && <FinalStep workspace={workspace} busy={busy} action={action} />}
@@ -420,9 +423,103 @@ function ReceivedStep({ workspace }: { workspace: StudentWorkspace }) {
   return <><StepTitle number={2} title="친구들이 남긴 말 확인하기" text="여러 사람이 같은 곳을 짚었다면 그 부분부터 고쳐 보세요. 작성자 이름은 표시되지 않습니다." icon={<MessageSquareText />} />{workspace.received.length === 0 ? <div className={styles.empty}>아직 내가 받은 평가가 없습니다.</div> : <div className={styles.feedbackColumns}><section><h3>잘 전달된 점</h3>{workspace.received.map((item, index) => <blockquote key={item.id}><b>의견 {index + 1}</b>{item.good}</blockquote>)}</section><section><h3>이해되지 않은 점</h3>{workspace.received.map((item, index) => <blockquote key={item.id}><b>의견 {index + 1}</b>{item.blocked}</blockquote>)}</section></div>}</>;
 }
 
-function RepresentativeStep({ group, workspace, busy, action }: { group?: Project4Config["groups"][number]; workspace: StudentWorkspace; busy: boolean; action: (name: string, payload?: Record<string, unknown>) => Promise<StudentWorkspace | null> }) {
-  const [selectedStudentId, setSelected] = useState(workspace.representative?.selectedStudentId || ""); const [reason, setReason] = useState(workspace.representative?.reason || "");
-  return <><StepTitle number={3} title="함께 보고 싶은 설명 고르기" text="가장 잘한 작품을 뽑는 것이 아니라, 다른 모둠과 함께 보고 싶은 설명 한 편을 고릅니다." icon={<BookOpenCheck />} /><form className={styles.taskCard} onSubmit={(event) => { event.preventDefault(); void action("saveRepresentative", { selectedStudentId, reason }); }}><label><span>함께 보고 싶은 설명</span><select value={selectedStudentId} onChange={(event) => setSelected(event.target.value)}><option value="">선택</option>{group?.students.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label><span>이 영상을 고른 까닭을 평가 기준 번호를 들어 한 문장으로 써 주세요.</span><textarea rows={4} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="예: 2번 기준처럼 지구본을 돌리며 말해서 따라가기 쉬웠습니다." /></label><button className={styles.primaryButton} disabled={busy || !selectedStudentId || !reason}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 모둠 대표 저장</button>{workspace.representative && <p className={styles.helper}>현재 선택: {workspace.representative.selectedStudentName} 작품</p>}</form></>;
+function RepresentativeStep({ group, me, token, workspace, setWorkspace }: {
+  group?: Project4Config["groups"][number];
+  me: { studentId: string };
+  token: string;
+  workspace: StudentWorkspace;
+  setWorkspace: StudentWorkspaceSetter;
+}) {
+  const [shared, setShared] = useState(workspace.representative);
+  const [reason, setReason] = useState(workspace.representative?.reasons.find((item) => item.studentId === me.studentId)?.reason || "");
+  const [savingSelection, setSavingSelection] = useState(false);
+  const [savingReason, setSavingReason] = useState(false);
+  const [syncError, setSyncError] = useState("");
+  const [lastSyncedAt, setLastSyncedAt] = useState("");
+  const reasonDirtyRef = useRef(false);
+
+  const applySharedRepresentative = useCallback((representative: StudentWorkspace["representative"]) => {
+    setShared(representative);
+    setWorkspace((current) => ({ ...current, representative }));
+    if (!reasonDirtyRef.current) {
+      setReason(representative?.reasons.find((item) => item.studentId === me.studentId)?.reason || "");
+    }
+    setLastSyncedAt(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+  }, [me.studentId, setWorkspace]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadSharedRepresentative() {
+      try {
+        const result = await project4Api<{ representative: StudentWorkspace["representative"] }>("representativeWorkspace", { token });
+        if (!active) return;
+        applySharedRepresentative(result.representative);
+        setSyncError("");
+      } catch (caught) {
+        if (active) setSyncError(caught instanceof Error ? caught.message : "공동 대표 선택을 불러오지 못했습니다.");
+      }
+    }
+    void loadSharedRepresentative();
+    const timer = window.setInterval(() => void loadSharedRepresentative(), 2500);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [applySharedRepresentative, token]);
+
+  async function selectRepresentative(selectedStudentId: string) {
+    if (savingSelection) return;
+    const selected = group?.students.find((item) => item.id === selectedStudentId);
+    if (!selected) return;
+    setSavingSelection(true);
+    setSyncError("");
+    setShared((current) => ({
+      selectedStudentId,
+      selectedStudentName: selected.name,
+      reasons: current?.reasons || [],
+      updatedAt: current?.updatedAt || "",
+    }));
+    try {
+      const result = await project4Api<{ representative: StudentWorkspace["representative"] }>("updateRepresentativeSelection", { token, selectedStudentId });
+      applySharedRepresentative(result.representative);
+    } catch (caught) {
+      setSyncError(caught instanceof Error ? caught.message : "대표 작품 선택을 저장하지 못했습니다.");
+    } finally {
+      setSavingSelection(false);
+    }
+  }
+
+  async function saveReason(event: FormEvent) {
+    event.preventDefault();
+    if (!reason.trim() || !shared) return;
+    setSavingReason(true);
+    setSyncError("");
+    try {
+      const result = await project4Api<{ representative: StudentWorkspace["representative"] }>("saveRepresentativeReason", { token, reason });
+      reasonDirtyRef.current = false;
+      applySharedRepresentative(result.representative);
+    } catch (caught) {
+      setSyncError(caught instanceof Error ? caught.message : "나의 선정 이유를 저장하지 못했습니다.");
+    } finally {
+      setSavingReason(false);
+    }
+  }
+
+  return <>
+    <StepTitle number={3} title="함께 보고 싶은 설명 고르기" text="모둠원이 함께 대표 작품 하나를 선택하고, 선정 이유는 각자 작성합니다." icon={<BookOpenCheck />} />
+    <div className={styles.representativeLayout}>
+      <section className={styles.taskCard}>
+        <div className={styles.representativeHeading}><div><b>함께 보고 싶은 설명</b><span>이름을 누르면 모둠의 공동 선택이 바로 바뀝니다.</span></div>{shared && <strong>{shared.selectedStudentName} 작품</strong>}</div>
+        <div className={styles.representativeCandidates}>{group?.students.map((item) => <button type="button" key={item.id} className={shared?.selectedStudentId === item.id ? styles.active : ""} disabled={savingSelection} onClick={() => void selectRepresentative(item.id)}><UserRound size={20} /><span>{item.name}</span>{shared?.selectedStudentId === item.id && <Check size={17} />}</button>)}</div>
+        <p className={syncError ? styles.representativeError : styles.helper} aria-live="polite">{syncError || (savingSelection ? "공동 선택을 저장하고 있습니다." : lastSyncedAt ? `${lastSyncedAt} 공동 선택 확인` : "공동 선택을 불러오고 있습니다.")}</p>
+      </section>
+      <form className={styles.taskCard} onSubmit={saveReason}>
+        <label><span>내가 이 작품을 함께 보고 싶은 이유</span><textarea rows={5} value={reason} onChange={(event) => { reasonDirtyRef.current = true; setReason(event.target.value); }} placeholder="예: 2번 기준처럼 지구본을 돌리며 말해서 따라가기 쉬웠습니다." /></label>
+        <button className={styles.primaryButton} disabled={savingReason || !shared || !reason.trim()}>{savingReason ? <Loader2 className={styles.spin} /> : <Save size={16} />} 나의 이유 저장</button>
+      </form>
+    </div>
+    <section className={styles.representativeReasons}><div><MessageSquareText size={19} /><h3>모둠원이 쓴 선정 이유</h3><span>{shared?.reasons.length || 0}명</span></div>{!shared || shared.reasons.length === 0 ? <p>아직 저장된 선정 이유가 없습니다.</p> : <div>{shared.reasons.map((item) => <article key={item.studentId}><header><b>{item.studentName}</b><span>{item.selectedStudentName} 작품에 대해 작성</span></header><p>{item.reason}</p></article>)}</div>}</section>
+  </>;
 }
 
 const presentationRatingLabels: Record<Project4PresentationRating, string> = {

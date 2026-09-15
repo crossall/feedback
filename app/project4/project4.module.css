@@ -995,6 +995,145 @@
   background: var(--soft);
 }
 
+.representativeLayout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.representativeHeading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.representativeHeading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.representativeHeading span,
+.representativeHeading strong {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.representativeHeading strong {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  color: var(--green-dark);
+  background: var(--green-pale);
+}
+
+.representativeCandidates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.representativeCandidates button {
+  display: grid;
+  min-width: 0;
+  min-height: 64px;
+  grid-template-columns: 24px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background: white;
+  cursor: pointer;
+  font-weight: 800;
+  text-align: left;
+}
+
+.representativeCandidates button:hover:not(:disabled) {
+  border-color: var(--green);
+}
+
+.representativeCandidates button.active {
+  border-color: var(--green);
+  color: var(--green-dark);
+  background: var(--green-pale);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+
+.representativeCandidates button:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+.representativeError {
+  margin: 0;
+  color: #a43f2c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.representativeReasons {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.representativeReasons > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.representativeReasons h3,
+.representativeReasons p {
+  margin: 0;
+}
+
+.representativeReasons > div:first-child > span {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.representativeReasons > div:last-child {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.representativeReasons article {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: white;
+}
+
+.representativeReasons article header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.representativeReasons article header span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.representativeReasons article p,
+.representativeReasons > p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
 .criteriaAside {
   position: sticky;
   top: 92px;
@@ -1956,6 +2095,11 @@
 
   .presentationNotice > strong {
     grid-column: 2;
+  }
+
+  .representativeLayout,
+  .representativeReasons > div:last-child {
+    grid-template-columns: 1fr;
   }
 
   .stepTitle {

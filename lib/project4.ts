@@ -39,12 +39,22 @@ export type Project4PeerResponse = {
   updatedAt: string;
 };
 
+export type Project4RepresentativeReason = {
+  studentId: string;
+  studentName: string;
+  selectedStudentId: string;
+  selectedStudentName: string;
+  reason: string;
+  updatedAt: string;
+};
+
 export type Project4Representative = {
   classId: string;
   groupId: string;
   selectedStudentId: string;
   selectedStudentName: string;
   reason: string;
+  reasons?: Project4RepresentativeReason[];
   submittedById: string;
   submittedByName: string;
   updatedAt: string;

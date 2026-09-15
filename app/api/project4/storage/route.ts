@@ -23,7 +23,8 @@ import {
   saveProject4PresentationMemory,
   saveProject4PresentationRating,
   saveProject4Reflection,
-  saveProject4Representative,
+  saveProject4RepresentativeReason,
+  saveProject4RepresentativeSelection,
 } from "@/lib/server/project4-store";
 import type {
   Project4AiReview,
@@ -95,6 +96,16 @@ function studentAiReview(value: Project4AiReview | null) {
 
 function studentPresentationReview(value: Project4PresentationReview | null) {
   return value ? { ...value, submittedById: "", submittedByName: "" } : null;
+}
+
+function studentRepresentative(value: Awaited<ReturnType<typeof getProject4Representative>>) {
+  if (!value) return null;
+  return {
+    selectedStudentId: value.selectedStudentId,
+    selectedStudentName: value.selectedStudentName,
+    reasons: value.reasons || [],
+    updatedAt: value.updatedAt,
+  };
 }
 
 export async function POST(request: Request) {
@@ -172,7 +183,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (action === "studentWorkspace" || action === "presentationWorkspace" || action === "submitPeer" || action === "saveRepresentative" || action === "savePresentationReview" || action === "updatePresentationReview" || action === "saveAiReview" || action === "saveFinal" || action === "saveReflection") {
+    if (action === "studentWorkspace" || action === "representativeWorkspace" || action === "presentationWorkspace" || action === "submitPeer" || action === "saveRepresentative" || action === "updateRepresentativeSelection" || action === "saveRepresentativeReason" || action === "savePresentationReview" || action === "updatePresentationReview" || action === "saveAiReview" || action === "saveFinal" || action === "saveReflection") {
       const access = readProject4Token(authToken, "student");
       const config = await getProject4Config();
       const found = studentFromConfig(config, access.classId || "", access.groupId || "", access.studentId || "");
@@ -184,6 +195,9 @@ export async function POST(request: Request) {
       const actionStages: Record<string, number> = {
         submitPeer: 1,
         saveRepresentative: 3,
+        updateRepresentativeSelection: 3,
+        saveRepresentativeReason: 3,
+        representativeWorkspace: 3,
         savePresentationReview: 4,
         updatePresentationReview: 4,
         presentationWorkspace: 4,
@@ -192,6 +206,12 @@ export async function POST(request: Request) {
         saveReflection: 8,
       };
       if (actionStages[action]) requireStage(config, actionStages[action]);
+
+      if (action === "representativeWorkspace") {
+        return NextResponse.json({
+          representative: studentRepresentative(await getProject4Representative(classId, groupId)),
+        });
+      }
 
       if (action === "presentationWorkspace") {
         return NextResponse.json({
@@ -222,20 +242,57 @@ export async function POST(request: Request) {
         });
       }
 
-      if (action === "saveRepresentative") {
+      if (action === "saveRepresentative" || action === "updateRepresentativeSelection") {
         const selectedStudentId = text(body.selectedStudentId, 100);
         const selected = found.group.students.find((item) => item.id === selectedStudentId);
-        const reason = text(body.reason);
-        if (!selected || !reason) throw new Error("대표 작품과 선정 까닭을 입력해 주세요.");
-        await saveProject4Representative({
+        const legacyReason = action === "saveRepresentative" ? text(body.reason) : "";
+        if (!selected) throw new Error("대표 작품을 다시 선택해 주세요.");
+        if (action === "saveRepresentative" && !legacyReason) throw new Error("대표 작품을 고른 이유를 입력해 주세요.");
+        const now = new Date().toISOString();
+        await saveProject4RepresentativeSelection({
           classId,
           groupId,
           selectedStudentId,
           selectedStudentName: selected.name,
-          reason,
           submittedById: studentId,
           submittedByName: found.student.name,
+          updatedAt: now,
+        });
+        if (action === "saveRepresentative") {
+          await saveProject4RepresentativeReason({
+            classId,
+            groupId,
+            studentId,
+            studentName: found.student.name,
+            selectedStudentId,
+            selectedStudentName: selected.name,
+            reason: legacyReason,
+            updatedAt: now,
+          });
+        } else {
+          return NextResponse.json({
+            representative: studentRepresentative(await getProject4Representative(classId, groupId)),
+          });
+        }
+      }
+
+      if (action === "saveRepresentativeReason") {
+        const reason = text(body.reason);
+        const representative = await getProject4Representative(classId, groupId);
+        if (!representative) throw new Error("먼저 모둠 대표 작품을 선택해 주세요.");
+        if (!reason) throw new Error("대표 작품을 고른 이유를 입력해 주세요.");
+        await saveProject4RepresentativeReason({
+          classId,
+          groupId,
+          studentId,
+          studentName: found.student.name,
+          selectedStudentId: representative.selectedStudentId,
+          selectedStudentName: representative.selectedStudentName,
+          reason,
           updatedAt: new Date().toISOString(),
+        });
+        return NextResponse.json({
+          representative: studentRepresentative(await getProject4Representative(classId, groupId)),
         });
       }
 
@@ -399,11 +456,7 @@ export async function POST(request: Request) {
             good: item.good,
             blocked: item.blocked,
           })),
-          representative: representative ? {
-            selectedStudentId: representative.selectedStudentId,
-            selectedStudentName: representative.selectedStudentName,
-            reason: representative.reason,
-          } : null,
+          representative: studentRepresentative(representative),
           presentation: studentPresentationReview(presentation),
           aiReview: studentAiReview(aiReview),
           final: final ? { ...final, submittedById: "", submittedByName: "" } : null,
