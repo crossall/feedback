@@ -59,8 +59,8 @@ export async function POST(request: Request) {
     const body = await request.json() as { token?: string; fileName?: string; pdfData?: string };
     const access = readProject4Token(body.token || "", "student");
     const config = await getProject4Config();
-    if (config.openStage < 4) {
-      return NextResponse.json({ error: "4단계는 아직 교사가 열지 않았습니다." }, { status: 400 });
+    if (config.openStage < 5) {
+      return NextResponse.json({ error: "5단계는 아직 교사가 열지 않았습니다." }, { status: 400 });
     }
 
     const group = config.groups.find((item) => item.id === access.groupId && item.classId === access.classId);

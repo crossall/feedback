@@ -11,6 +11,7 @@ import {
   getProject4Final,
   getProject4GroupPeers,
   getProject4Junior,
+  getProject4PresentationReview,
   getProject4Reflection,
   getProject4Representative,
   getProject4TeacherData,
@@ -19,6 +20,7 @@ import {
   saveProject4Final,
   saveProject4Junior,
   saveProject4Peer,
+  saveProject4PresentationReview,
   saveProject4Reflection,
   saveProject4Representative,
 } from "@/lib/server/project4-store";
@@ -27,6 +29,8 @@ import type {
   Project4Config,
   Project4FinalScript,
   Project4JuniorResponse,
+  Project4PresentationRating,
+  Project4PresentationReview,
   Project4Reflection,
 } from "@/lib/project4";
 
@@ -126,7 +130,7 @@ export async function POST(request: Request) {
 
     if (action === "enterJunior") {
       const config = await getProject4Config();
-      requireStage(config, 6);
+      requireStage(config, 7);
       const classId = text(body.targetClassId, 100);
       const groupId = text(body.targetGroupId, 100);
       const name = text(body.name, 100);
@@ -163,7 +167,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (action === "studentWorkspace" || action === "submitPeer" || action === "saveRepresentative" || action === "saveAiReview" || action === "saveFinal" || action === "saveReflection") {
+    if (action === "studentWorkspace" || action === "submitPeer" || action === "saveRepresentative" || action === "savePresentationReview" || action === "saveAiReview" || action === "saveFinal" || action === "saveReflection") {
       const access = readProject4Token(authToken, "student");
       const config = await getProject4Config();
       const found = studentFromConfig(config, access.classId || "", access.groupId || "", access.studentId || "");
@@ -175,9 +179,10 @@ export async function POST(request: Request) {
       const actionStages: Record<string, number> = {
         submitPeer: 1,
         saveRepresentative: 3,
-        saveAiReview: 4,
-        saveFinal: 5,
-        saveReflection: 7,
+        savePresentationReview: 4,
+        saveAiReview: 5,
+        saveFinal: 6,
+        saveReflection: 8,
       };
       if (actionStages[action]) requireStage(config, actionStages[action]);
 
@@ -215,6 +220,40 @@ export async function POST(request: Request) {
           selectedStudentId,
           selectedStudentName: selected.name,
           reason,
+          submittedById: studentId,
+          submittedByName: found.student.name,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      if (action === "savePresentationReview") {
+        const submitted = body.presentation as Project4PresentationReview | undefined;
+        const targetGroups = config.groups.filter((group) => group.classId === classId && group.id !== groupId);
+        if (targetGroups.length === 0) throw new Error("같은 반에 평가할 다른 모둠이 없습니다.");
+        const submittedTargets = new Map(
+          (Array.isArray(submitted?.targets) ? submitted.targets : []).map((target) => [text(target.targetGroupId, 100), target]),
+        );
+        const validRatings = new Set<Project4PresentationRating>(["good", "average", "needsWork"]);
+        const targets = targetGroups.map((targetGroup) => {
+          const target = submittedTargets.get(targetGroup.id);
+          const ratings = Array.isArray(target?.ratings) ? target.ratings.slice(0, 6) : [];
+          if (ratings.length !== 6 || ratings.some((rating) => !validRatings.has(rating))) {
+            throw new Error(`${targetGroup.name}의 평가 기준 6개에 모두 표시해 주세요.`);
+          }
+          return {
+            targetGroupId: targetGroup.id,
+            targetGroupName: targetGroup.name,
+            ratings,
+          };
+        });
+        const memorable = text(submitted?.memorable);
+        if (!memorable) throw new Error("발표를 보며 기억해 두고 싶은 점을 적어 주세요.");
+        await saveProject4PresentationReview({
+          classId,
+          evaluatorGroupId: groupId,
+          evaluatorGroupName: found.group.name,
+          targets,
+          memorable,
           submittedById: studentId,
           submittedByName: found.student.name,
           updatedAt: new Date().toISOString(),
@@ -281,9 +320,10 @@ export async function POST(request: Request) {
         });
       }
 
-      const [peers, representative, aiReview, final, juniors, reflection] = await Promise.all([
+      const [peers, representative, presentation, aiReview, final, juniors, reflection] = await Promise.all([
         getProject4GroupPeers(classId, groupId),
         getProject4Representative(classId, groupId),
+        getProject4PresentationReview(classId, groupId),
         getProject4AiReview(classId, groupId),
         getProject4Final(classId, groupId),
         getProject4Junior(classId, groupId),
@@ -303,6 +343,11 @@ export async function POST(request: Request) {
             selectedStudentId: representative.selectedStudentId,
             selectedStudentName: representative.selectedStudentName,
             reason: representative.reason,
+          } : null,
+          presentation: presentation ? {
+            ...presentation,
+            submittedById: "",
+            submittedByName: "",
           } : null,
           aiReview: studentAiReview(aiReview),
           final: final ? { ...final, submittedById: "", submittedByName: "" } : null,
@@ -328,7 +373,7 @@ export async function POST(request: Request) {
     if (action === "submitJunior") {
       const access = readProject4Token(authToken, "junior");
       const config = await getProject4Config();
-      requireStage(config, 6);
+      requireStage(config, 7);
       const understanding = body.understanding;
       if (understanding !== "well" && understanding !== "some" && understanding !== "little") {
         throw new Error("이해한 정도를 선택해 주세요.");

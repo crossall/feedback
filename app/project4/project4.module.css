@@ -753,7 +753,7 @@
 
 .resultStats {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) auto;
   gap: 8px;
 }
 
@@ -891,7 +891,7 @@
 
 .journey {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 5px;
   margin-bottom: 24px;
 }
@@ -1018,6 +1018,210 @@
   color: #53605a;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.presentationForm {
+  display: grid;
+  gap: 20px;
+}
+
+.presentationNotice {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 14px 16px;
+  border-left: 4px solid var(--yellow);
+  background: #fff9e8;
+}
+
+.presentationNotice > svg {
+  color: var(--green-dark);
+}
+
+.presentationNotice > div {
+  display: grid;
+  gap: 2px;
+}
+
+.presentationNotice span,
+.presentationNotice > strong {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.presentationNotice > strong {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.presentationTargets {
+  display: grid;
+  gap: 16px;
+}
+
+.presentationTarget {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+}
+
+.presentationTarget > header {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 52px;
+  padding: 10px 16px;
+  color: white;
+  background: #203f61;
+}
+
+.presentationTarget > header h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.presentationTarget > header span {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.presentationCriterion {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 18px;
+  align-items: center;
+  padding: 13px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.presentationCriterion:first-child {
+  border-top: 0;
+}
+
+.presentationCriterion b {
+  font-size: 14px;
+}
+
+.presentationCriterion p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.presentationChoices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.presentationChoices button {
+  min-height: 38px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+  background: var(--soft);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.presentationChoices button.active {
+  border-color: var(--green);
+  color: var(--green-dark);
+  background: var(--green-pale);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+
+.presentationMemory {
+  padding: 18px;
+  border-top: 4px solid #203f61;
+  background: var(--soft);
+}
+
+.presentationMemory small {
+  display: block;
+  margin: -3px 0 10px;
+  color: var(--muted);
+}
+
+.presentationActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.presentationActions p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.presentationRecord {
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+
+.presentationRecord:first-child {
+  border-top: 0;
+}
+
+.presentationRecord h3 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+}
+
+.presentationRecord h3 small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.presentationResultTarget {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid #e7ebe8;
+}
+
+.presentationResultTarget > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.presentationResultTarget span {
+  padding: 4px 7px;
+  border-radius: 4px;
+  color: #46524d;
+  background: #edf1ee;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.presentationRecord > p {
+  margin: 12px 0 0;
+  padding: 12px;
+  background: #f5f7f5;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.presentationRecord > p strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--green-dark);
+  font-size: 12px;
 }
 
 .feedbackColumns {
@@ -1579,7 +1783,7 @@
 
   .journey {
     overflow-x: auto;
-    grid-template-columns: repeat(7, 104px);
+    grid-template-columns: repeat(8, 104px);
     padding-bottom: 5px;
   }
 
@@ -1723,9 +1927,17 @@
   }
 
   .groupFeedbackActions,
-  .groupFeedbackMeta {
+  .groupFeedbackMeta,
+  .presentationActions,
+  .presentationRecord h3 {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .presentationCriterion,
+  .presentationResultTarget {
+    grid-template-columns: 1fr;
+    gap: 9px;
   }
 
   .stepTitle {

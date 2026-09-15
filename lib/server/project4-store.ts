@@ -9,6 +9,7 @@ import {
   type Project4FinalScript,
   type Project4JuniorResponse,
   type Project4PeerResponse,
+  type Project4PresentationReview,
   type Project4Reflection,
   type Project4Representative,
 } from "@/lib/project4";
@@ -73,6 +74,14 @@ export async function getProject4Representative(classId: string, groupId: string
   return readJson<Project4Representative>(`representative/${classId}/${groupId}.json`);
 }
 
+export async function saveProject4PresentationReview(value: Project4PresentationReview) {
+  await writeJson(`presentation/${value.classId}/${value.evaluatorGroupId}.json`, value);
+}
+
+export async function getProject4PresentationReview(classId: string, groupId: string) {
+  return readJson<Project4PresentationReview>(`presentation/${classId}/${groupId}.json`);
+}
+
 export async function saveProject4AiReview(value: Project4AiReview) {
   await writeJson(`ai/${value.classId}/${value.groupId}.json`, value);
 }
@@ -106,13 +115,14 @@ export async function getProject4Reflection(classId: string, groupId: string, st
 }
 
 export async function getProject4TeacherData() {
-  const [peer, representatives, ai, finals, juniors, reflections] = await Promise.all([
+  const [peer, representatives, presentations, ai, finals, juniors, reflections] = await Promise.all([
     listJson<Project4PeerResponse>("peer/"),
     listJson<Project4Representative>("representative/"),
+    listJson<Project4PresentationReview>("presentation/"),
     listJson<Project4AiReview>("ai/"),
     listJson<Project4FinalScript>("final/"),
     listJson<Project4JuniorResponse>("junior/"),
     listJson<Project4Reflection>("reflection/"),
   ]);
-  return { peer, representatives, ai, finals, juniors, reflections };
+  return { peer, representatives, presentations, ai, finals, juniors, reflections };
 }
