@@ -295,14 +295,46 @@ function TeacherSetup({ draft, setDraft, save, busy }: { draft: Project4Config; 
   function updateGroup(groupId: string, patch: Partial<Project4Config["groups"][number]>) {
     setDraft({ ...draft, groups: draft.groups.map((group) => group.id === groupId ? { ...group, ...patch } : group) });
   }
+  function addStudent(groupId: string, name: string) {
+    const group = draft.groups.find((item) => item.id === groupId);
+    const trimmedName = name.trim();
+    if (!group || !trimmedName || group.students.some((student) => student.name.trim() === trimmedName)) return false;
+    updateGroup(groupId, {
+      students: [...group.students, { id: project4Id("student"), name: trimmedName }],
+    });
+    return true;
+  }
   return <div className={styles.panelStack}>
     <section className={styles.panel}><div className={styles.panelHead}><div><span>01</span><h2>프로젝트 안내</h2></div></div><div className={styles.formGrid}><label><span>프로젝트 이름</span><input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label><label className={styles.full}><span>학생 안내</span><textarea rows={3} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} /></label></div></section>
     <section className={styles.panel}><div className={styles.panelHead}><div><span>02</span><h2>평가 기준 6항목</h2></div><small>초안은 언제든 수정할 수 있습니다.</small></div><div className={styles.criteriaEdit}>{draft.criteria.map((criterion, index) => <label key={index}><b>{index + 1}</b><textarea rows={2} value={criterion} onChange={(event) => setDraft({ ...draft, criteria: draft.criteria.map((item, itemIndex) => itemIndex === index ? event.target.value : item) })} /></label>)}</div></section>
     <section className={styles.panel}><div className={styles.panelHead}><div><span>03</span><h2>반·모둠·학생 명단</h2></div><button className={styles.outlineButton} type="button" onClick={addClass}><Plus size={15} /> 반 추가</button></div>
       {draft.classes.length === 0 ? <div className={styles.empty}>반을 추가한 뒤 모둠과 학생 이름을 등록해 주세요.</div> : draft.classes.map((classroom) => <article className={styles.classEditor} key={classroom.id}><div className={styles.classEditorHead}><input value={classroom.name} onChange={(event) => setDraft({ ...draft, classes: draft.classes.map((item) => item.id === classroom.id ? { ...item, name: event.target.value } : item) })} /><div><button type="button" onClick={() => addGroup(classroom.id)}><Plus size={14} /> 모둠 추가</button><button type="button" className={styles.dangerButton} onClick={() => setDraft({ ...draft, classes: draft.classes.filter((item) => item.id !== classroom.id), groups: draft.groups.filter((group) => group.classId !== classroom.id) })}><Trash2 size={14} /></button></div></div>
-        <div className={styles.groupGrid}>{draft.groups.filter((group) => group.classId === classroom.id).map((group) => <div className={styles.groupEditor} key={group.id}><div className={styles.groupTitle}><input value={group.name} onChange={(event) => updateGroup(group.id, { name: event.target.value })} /><button type="button" onClick={() => setDraft({ ...draft, groups: draft.groups.filter((item) => item.id !== group.id) })}><Trash2 size={13} /></button></div><div className={styles.studentList}>{group.students.map((student) => <div key={student.id}><input value={student.name} onChange={(event) => updateGroup(group.id, { students: group.students.map((item) => item.id === student.id ? { ...item, name: event.target.value } : item) })} /><button type="button" onClick={() => updateGroup(group.id, { students: group.students.filter((item) => item.id !== student.id) })}><Trash2 size={12} /></button></div>)}</div><button className={styles.addStudent} type="button" onClick={() => updateGroup(group.id, { students: [...group.students, { id: project4Id("student"), name: `학생 ${group.students.length + 1}` }] })}><Plus size={13} /> 학생 추가</button></div>)}</div>
+        <div className={styles.groupGrid}>{draft.groups.filter((group) => group.classId === classroom.id).map((group) => <div className={styles.groupEditor} key={group.id}><div className={styles.groupTitle}><input value={group.name} onChange={(event) => updateGroup(group.id, { name: event.target.value })} /><button type="button" onClick={() => setDraft({ ...draft, groups: draft.groups.filter((item) => item.id !== group.id) })}><Trash2 size={13} /></button></div><div className={styles.studentList}>{group.students.map((student) => <div key={student.id}><input value={student.name} onChange={(event) => updateGroup(group.id, { students: group.students.map((item) => item.id === student.id ? { ...item, name: event.target.value } : item) })} /><button type="button" onClick={() => updateGroup(group.id, { students: group.students.filter((item) => item.id !== student.id) })}><Trash2 size={12} /></button></div>)}</div><StudentAdder onAdd={(name) => addStudent(group.id, name)} /></div>)}</div>
       </article>)}</section>
     <div className={styles.stickySave}><span>학생 이름은 로그인 선택과 교사의 평가자 확인에 사용됩니다.</span><button className={styles.primaryButton} type="button" onClick={save} disabled={busy}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 변경사항 저장</button></div>
+  </div>;
+}
+
+function StudentAdder({ onAdd }: { onAdd: (name: string) => boolean }) {
+  const [name, setName] = useState("");
+
+  function add() {
+    if (onAdd(name)) setName("");
+  }
+
+  return <div className={styles.addStudent}>
+    <input
+      value={name}
+      onChange={(event) => setName(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        add();
+      }}
+      placeholder="학생 이름"
+      aria-label="추가할 학생 이름"
+    />
+    <button type="button" onClick={add} aria-label="학생 추가" title="학생 추가"><Plus size={14} /></button>
   </div>;
 }
 
