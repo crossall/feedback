@@ -28,7 +28,7 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import {
   project4DefaultConfig,
   project4Id,
@@ -66,6 +66,8 @@ type StudentWorkspace = {
   };
   reflection: Project4Reflection | null;
 };
+
+type StudentWorkspaceSetter = Dispatch<SetStateAction<StudentWorkspace>>;
 
 type TeacherData = {
   peer: Project4PeerResponse[];
@@ -356,7 +358,7 @@ function TeacherResults({ config, data, refresh, busy }: { config: Project4Confi
     ].map(([label, value]) => <div key={String(label)}><span>{label}</span><strong>{value}</strong></div>)}<button type="button" onClick={refresh} disabled={busy}><RefreshCw className={busy ? styles.spin : ""} size={16} /> 새로고침</button></div>
     <ResultSection title="모둠 내 동료평가 · 교사 실명 확인" empty={data.peer.length === 0}>{data.peer.map((item) => <article className={styles.record} key={item.id}><div className={styles.recordMeta}><b>{item.evaluatorName}</b><span>→ {item.targetName}</span><small>{classLabel(config, item.classId)} · {groupLabel(config, item.groupId)}</small></div><div><p><strong>잘 전달된 부분</strong>{item.good}</p><p><strong>이해가 막힌 부분</strong>{item.blocked}</p></div></article>)}</ResultSection>
     <ResultSection title="대표 작품 선정" empty={data.representatives.length === 0}>{data.representatives.map((item) => <article className={styles.record} key={`${item.classId}-${item.groupId}`}><div className={styles.recordMeta}><b>{item.selectedStudentName} 작품</b><span>{groupLabel(config, item.groupId)}</span><small>입력: {item.submittedByName}</small></div><div><p><strong>선정 이유</strong>{item.reason}</p></div></article>)}</ResultSection>
-    <ResultSection title="다른 모둠 발표 평가 · 교사 실명 확인" empty={data.presentations.length === 0}>{data.presentations.map((review) => <article className={styles.presentationRecord} key={`${review.classId}-${review.evaluatorGroupId}`}><h3>{classLabel(config, review.classId)} · {review.evaluatorGroupName}<small>입력: {review.submittedByName} · {new Date(review.updatedAt).toLocaleString("ko-KR")}</small></h3>{review.targets.map((target) => <div className={styles.presentationResultTarget} key={target.targetGroupId}><b>{target.targetGroupName}</b><div>{target.ratings.map((rating, index) => <span key={index}>{index + 1} {presentationRatingLabels[rating]}</span>)}</div></div>)}<p><strong>기억해 두고 싶은 점</strong>{review.memorable}</p></article>)}</ResultSection>
+    <ResultSection title="다른 모둠 발표 평가 · 교사 실명 확인" empty={data.presentations.length === 0}>{data.presentations.map((review) => <article className={styles.presentationRecord} key={`${review.classId}-${review.evaluatorGroupId}`}><h3>{classLabel(config, review.classId)} · {review.evaluatorGroupName}<small>마지막 입력: {review.submittedByName} · {new Date(review.updatedAt).toLocaleString("ko-KR")}</small></h3>{review.targets.map((target) => <div className={styles.presentationResultTarget} key={target.targetGroupId}><b>{target.targetGroupName}</b><div>{target.ratings.map((rating, index) => <span key={index}>{index + 1} {rating ? presentationRatingLabels[rating] : "미선택"}</span>)}</div></div>)}{review.memorable && <p><strong>기억해 두고 싶은 점</strong>{review.memorable}</p>}</article>)}</ResultSection>
     <ResultSection title="모둠 AI 피드백 검토 · 교사용 정답" empty={data.ai.length === 0}>{data.ai.map((review) => <article className={styles.aiRecord} key={`${review.classId}-${review.groupId}`}><h3>{classLabel(config, review.classId)} · {groupLabel(config, review.groupId)} <small>{review.revision || 1}차 · {review.fileName} · 입력: {review.submittedByName}</small></h3>{review.feedbacks.map((feedback, index) => <div key={feedback.id}><b>{index + 1}. {feedback.title}</b><span className={feedback.accept === true ? styles.accept : styles.reject}>{feedback.accept === true ? "학생 O" : feedback.accept === false ? "학생 X" : "미응답"}</span><p><strong>정답: {feedback.isValid === true ? "O" : feedback.isValid === false ? "X" : "기존 기록"}</strong>{feedback.teacherExplanation || "교사용 해설이 없는 기존 기록입니다."}<br /><small>학생 근거: {feedback.basis || "미선택"} · 학생 이유: {feedback.reason || "미입력"}</small></p></div>)}{review.wrongFeedback && <p className={styles.wrongFeedback}><strong>잘못되었다고 본 피드백</strong>{review.wrongFeedback}</p>}</article>)}</ResultSection>
     <ResultSection title="최종 대본" empty={data.finals.length === 0}>{data.finals.map((item) => <article className={styles.record} key={`${item.classId}-${item.groupId}`}><div className={styles.recordMeta}><b>{classLabel(config, item.classId)} · {groupLabel(config, item.groupId)}</b><span>입력: {item.submittedByName}</span><small>{item.mode === "pdf" ? item.fileName : "직접 작성"}</small></div><div>{item.mode === "text" ? <p><strong>최종 대본</strong>{item.text}</p> : item.fileData ? <a className={styles.outlineButton} href={item.fileData} download={item.fileName || "최종-대본.pdf"}><FileText size={15} /> PDF 내려받기</a> : <p>PDF 파일 정보가 없습니다.</p>}</div></article>)}</ResultSection>
     <ResultSection title="5학년 후배 평가 · 교사 실명 확인" empty={data.juniors.length === 0}>{data.juniors.map((item) => <article className={styles.record} key={item.id}><div className={styles.recordMeta}><b>{item.evaluatorName}</b><span>{item.evaluatorClass}</span><small>대상: {classLabel(config, item.targetClassId)} · {groupLabel(config, item.targetGroupId)}</small></div><div><p><strong>이해 정도</strong>{item.understanding === "well" ? "잘 이해했어요" : item.understanding === "some" ? "조금 알 것 같아요" : "잘 모르겠어요"}</p>{item.question && <p><strong>질문</strong>{item.question}</p>}{item.message && <p><strong>한마디</strong>{item.message}</p>}</div></article>)}</ResultSection>
@@ -380,7 +382,7 @@ function StudentLogin({ config, onBack, onEnter }: { config: Project4Config; onB
   return <CenteredPanel title="6학년 프로젝트 평가" subtitle="자기 반과 모둠을 고른 뒤 이름을 선택하세요." onBack={onBack}><form className={styles.loginForm} onSubmit={submit}><label><span>반</span><select value={classId} onChange={(event) => { setClassId(event.target.value); setGroupId(""); setStudentId(""); }}><option value="">반 선택</option>{config.classes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label><span>모둠</span><select value={groupId} onChange={(event) => { setGroupId(event.target.value); setStudentId(""); }} disabled={!classId}><option value="">모둠 선택</option>{groups.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label><span>이름</span><select value={studentId} onChange={(event) => setStudentId(event.target.value)} disabled={!groupId}><option value="">이름 선택</option>{students.map((student) => <option key={student.id} value={student.id}>{student.name}</option>)}</select></label><p className={styles.helper}>선택한 이름은 로그인 확인에만 사용되며, 친구 화면의 평가 의견에는 표시되지 않습니다.</p>{error && <InlineError text={error} />}<button className={styles.primaryButton} disabled={busy || !studentId}>{busy ? <Loader2 className={styles.spin} /> : <ChevronRight size={17} />} 평가 시작</button></form></CenteredPanel>;
 }
 
-function StudentStudio({ config, setConfig, me, token, workspace, setWorkspace }: { config: Project4Config; setConfig: (config: Project4Config) => void; me: { classId: string; groupId: string; studentId: string; name: string }; token: string; workspace: StudentWorkspace; setWorkspace: (workspace: StudentWorkspace) => void }) {
+function StudentStudio({ config, setConfig, me, token, workspace, setWorkspace }: { config: Project4Config; setConfig: (config: Project4Config) => void; me: { classId: string; groupId: string; studentId: string; name: string }; token: string; workspace: StudentWorkspace; setWorkspace: StudentWorkspaceSetter }) {
   const [stage, setStage] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -390,7 +392,7 @@ function StudentStudio({ config, setConfig, me, token, workspace, setWorkspace }
     {stage === 1 && <PeerStep config={config} group={group} me={me} workspace={workspace} busy={busy} action={action} />}
     {stage === 2 && <ReceivedStep workspace={workspace} />}
     {stage === 3 && <RepresentativeStep group={group} workspace={workspace} busy={busy} action={action} />}
-    {stage === 4 && <PresentationReviewStep config={config} me={me} workspace={workspace} busy={busy} action={action} />}
+    {stage === 4 && <PresentationReviewStep config={config} me={me} token={token} workspace={workspace} setWorkspace={setWorkspace} />}
     {stage === 5 && <AiStep key={workspace.aiReview?.updatedAt || "empty"} config={config} group={group} me={me} token={token} workspace={workspace} setWorkspace={setWorkspace} busy={busy} action={action} />}
     {stage === 6 && <FinalStep workspace={workspace} busy={busy} action={action} />}
     {stage === 7 && <JuniorWaitStep summary={workspace.juniorSummary} />}
@@ -433,17 +435,39 @@ type PresentationDraft = {
   targets: Array<{
     targetGroupId: string;
     targetGroupName: string;
-    ratings: Array<Project4PresentationRating | undefined>;
+    ratings: Array<Project4PresentationRating | null>;
   }>;
   memorable: string;
 };
 
-function PresentationReviewStep({ config, me, workspace, busy, action }: {
+function mergePresentationDraft(
+  current: PresentationDraft,
+  shared: Project4PresentationReview | null,
+  pendingCells: Set<string>,
+  preserveMemory: boolean,
+): PresentationDraft {
+  return {
+    targets: current.targets.map((target) => {
+      const saved = shared?.targets.find((item) => item.targetGroupId === target.targetGroupId);
+      return {
+        ...target,
+        ratings: target.ratings.map((rating, criterionIndex) => (
+          pendingCells.has(`${target.targetGroupId}-${criterionIndex}`)
+            ? rating
+            : saved?.ratings[criterionIndex] || null
+        )),
+      };
+    }),
+    memorable: preserveMemory ? current.memorable : shared?.memorable || "",
+  };
+}
+
+function PresentationReviewStep({ config, me, token, workspace, setWorkspace }: {
   config: Project4Config;
   me: { classId: string; groupId: string };
+  token: string;
   workspace: StudentWorkspace;
-  busy: boolean;
-  action: (name: string, payload?: Record<string, unknown>) => Promise<StudentWorkspace | null>;
+  setWorkspace: StudentWorkspaceSetter;
 }) {
   const otherGroups = config.groups.filter((group) => group.classId === me.classId && group.id !== me.groupId);
   const [draft, setDraft] = useState<PresentationDraft>(() => ({
@@ -452,16 +476,56 @@ function PresentationReviewStep({ config, me, workspace, busy, action }: {
       return {
         targetGroupId: group.id,
         targetGroupName: group.name,
-        ratings: saved?.ratings ? [...saved.ratings] : Array(6).fill(undefined),
+        ratings: Array.from(
+          { length: project4PresentationCriteria.length },
+          (_, index) => saved?.ratings[index] || null,
+        ),
       };
     }),
     memorable: workspace.presentation?.memorable || "",
   }));
+  const [savingCells, setSavingCells] = useState<string[]>([]);
+  const [savingMemory, setSavingMemory] = useState(false);
+  const [syncError, setSyncError] = useState("");
+  const [lastSyncedAt, setLastSyncedAt] = useState("");
+  const pendingCellsRef = useRef(new Set<string>());
+  const memoryDirtyRef = useRef(false);
   const completedRatings = draft.targets.reduce((total, target) => total + target.ratings.filter(Boolean).length, 0);
   const totalRatings = draft.targets.length * project4PresentationCriteria.length;
-  const complete = totalRatings > 0 && completedRatings === totalRatings && Boolean(draft.memorable.trim());
 
-  function setRating(targetGroupId: string, criterionIndex: number, rating: Project4PresentationRating) {
+  useEffect(() => {
+    let active = true;
+    async function loadSharedPresentation() {
+      try {
+        const result = await project4Api<{ presentation: Project4PresentationReview | null }>("presentationWorkspace", { token });
+        if (!active) return;
+        setDraft((current) => mergePresentationDraft(
+          current,
+          result.presentation,
+          pendingCellsRef.current,
+          memoryDirtyRef.current,
+        ));
+        setWorkspace((current) => ({ ...current, presentation: result.presentation }));
+        setLastSyncedAt(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+        setSyncError("");
+      } catch (caught) {
+        if (active) setSyncError(caught instanceof Error ? caught.message : "공동 평가를 불러오지 못했습니다.");
+      }
+    }
+    void loadSharedPresentation();
+    const timer = window.setInterval(() => void loadSharedPresentation(), 2500);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [token, setWorkspace]);
+
+  async function setRating(targetGroupId: string, criterionIndex: number, rating: Project4PresentationRating) {
+    const cellKey = `${targetGroupId}-${criterionIndex}`;
+    if (pendingCellsRef.current.has(cellKey)) return;
+    pendingCellsRef.current.add(cellKey);
+    setSavingCells((current) => [...current, cellKey]);
+    setSyncError("");
     setDraft((current) => ({
       ...current,
       targets: current.targets.map((target) => target.targetGroupId === targetGroupId ? {
@@ -469,30 +533,63 @@ function PresentationReviewStep({ config, me, workspace, busy, action }: {
         ratings: target.ratings.map((value, index) => index === criterionIndex ? rating : value),
       } : target),
     }));
+    try {
+      const result = await project4Api<{ presentation: Project4PresentationReview | null }>("updatePresentationReview", {
+        token,
+        targetGroupId,
+        criterionIndex,
+        rating,
+      });
+      pendingCellsRef.current.delete(cellKey);
+      setDraft((current) => mergePresentationDraft(current, result.presentation, pendingCellsRef.current, memoryDirtyRef.current));
+      setWorkspace((current) => ({ ...current, presentation: result.presentation }));
+      setLastSyncedAt(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    } catch (caught) {
+      pendingCellsRef.current.delete(cellKey);
+      setSyncError(caught instanceof Error ? caught.message : "선택을 저장하지 못했습니다.");
+    } finally {
+      setSavingCells((current) => current.filter((item) => item !== cellKey));
+    }
   }
 
-  async function save(event: FormEvent) {
+  async function saveMemory(event: FormEvent) {
     event.preventDefault();
-    if (!complete) return;
-    await action("savePresentationReview", { presentation: draft });
+    setSavingMemory(true);
+    setSyncError("");
+    try {
+      const result = await project4Api<{ presentation: Project4PresentationReview | null }>("updatePresentationReview", {
+        token,
+        memorable: draft.memorable,
+      });
+      memoryDirtyRef.current = false;
+      setDraft((current) => mergePresentationDraft(current, result.presentation, pendingCellsRef.current, false));
+      setWorkspace((current) => ({ ...current, presentation: result.presentation }));
+      setLastSyncedAt(new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+    } catch (caught) {
+      setSyncError(caught instanceof Error ? caught.message : "공동 메모를 저장하지 못했습니다.");
+    } finally {
+      setSavingMemory(false);
+    }
   }
 
   return <>
-    <StepTitle number={4} title="다른 모둠 발표 평가하기" text="패들렛에서 다른 모둠 영상을 보며 모둠원과 상의해 한 장의 평가표를 완성하세요." icon={<Clapperboard />} />
-    {otherGroups.length === 0 ? <div className={styles.empty}>같은 반에 평가할 다른 모둠이 없습니다.</div> : <form className={styles.presentationForm} onSubmit={save}>
-      <div className={styles.presentationNotice}><Users size={18} /><div><b>모둠에서 한 장만 작성합니다.</b><span>각 기준마다 잘함, 보통, 아쉬움 중 하나를 선택하세요.</span></div><strong>{completedRatings}/{totalRatings}</strong></div>
+    <StepTitle number={4} title="다른 모둠 발표 평가하기" text="패들렛에서 다른 모둠 영상을 보며 모둠원이 함께 한 장의 평가표를 작성하세요." icon={<Clapperboard />} />
+    {otherGroups.length === 0 ? <div className={styles.empty}>같은 반에 평가할 다른 모둠이 없습니다. 다음 열린 단계로 이동해도 됩니다.</div> : <form className={styles.presentationForm} onSubmit={saveMemory}>
+      <div className={styles.presentationNotice}><Users size={18} /><div><b>모둠 공동 평가표입니다.</b><span>친구의 선택이 자동으로 함께 보이며, 같은 칸은 마지막에 누른 선택으로 바뀝니다. 모든 모둠을 평가하지 않아도 다음 단계로 갈 수 있습니다.</span></div><strong>{completedRatings}/{totalRatings} 선택</strong></div>
       <div className={styles.presentationTargets}>{draft.targets.map((target) => <article className={styles.presentationTarget} key={target.targetGroupId}>
         <header><Clapperboard size={18} /><h3>{target.targetGroupName}</h3><span>{target.ratings.filter(Boolean).length}/6</span></header>
         <div>{project4PresentationCriteria.map((criterion, criterionIndex) => <section className={styles.presentationCriterion} key={criterion.title}>
           <div><b>{criterionIndex + 1}. {criterion.title}</b><p>{criterion.description}</p></div>
           <div className={styles.presentationChoices} role="group" aria-label={`${target.targetGroupName} ${criterion.title}`}>
-            {(Object.entries(presentationRatingLabels) as Array<[Project4PresentationRating, string]>).map(([rating, label]) => <button type="button" className={target.ratings[criterionIndex] === rating ? styles.active : ""} key={rating} onClick={() => setRating(target.targetGroupId, criterionIndex, rating)}>{label}</button>)}
+            {(Object.entries(presentationRatingLabels) as Array<[Project4PresentationRating, string]>).map(([rating, label]) => {
+              const cellKey = `${target.targetGroupId}-${criterionIndex}`;
+              return <button type="button" disabled={savingCells.includes(cellKey)} className={target.ratings[criterionIndex] === rating ? styles.active : ""} key={rating} onClick={() => void setRating(target.targetGroupId, criterionIndex, rating)}>{savingCells.includes(cellKey) && target.ratings[criterionIndex] === rating ? "저장 중" : label}</button>;
+            })}
           </div>
         </section>)}</div>
       </article>)}</div>
-      <label className={styles.presentationMemory}><span>발표를 보며 기억해 두고 싶은 것</span><small>어느 모둠의 어떤 점이 좋았는지, 기준 번호와 함께 적어 주세요.</small><textarea rows={5} value={draft.memorable} onChange={(event) => setDraft({ ...draft, memorable: event.target.value })} placeholder="예: 2모둠은 2번 기준에서 지구본을 움직이는 동작과 설명이 잘 맞았습니다." /></label>
-      <div className={styles.presentationActions}><p>저장한 평가는 같은 모둠원이 함께 보며 다시 수정할 수 있습니다.</p><button className={styles.primaryButton} disabled={busy || !complete}>{busy ? <Loader2 className={styles.spin} /> : <Save size={16} />} 모둠 발표 평가 저장</button></div>
-      {workspace.presentation && <p className={styles.helper}>모둠 발표 평가표가 저장되어 있습니다. 다시 저장하면 최신 내용으로 바뀝니다.</p>}
+      <label className={styles.presentationMemory}><span>발표를 보며 기억해 두고 싶은 것</span><small>이 메모도 모둠원이 함께 봅니다. 어느 모둠의 어떤 점이 좋았는지 기준 번호와 함께 적어 주세요.</small><textarea rows={5} value={draft.memorable} onChange={(event) => { memoryDirtyRef.current = true; setDraft({ ...draft, memorable: event.target.value }); }} placeholder="예: 2모둠은 2번 기준에서 지구본을 움직이는 동작과 설명이 잘 맞았습니다." /></label>
+      <div className={styles.presentationActions}><p className={syncError ? styles.presentationError : ""} aria-live="polite">{syncError || (savingCells.length > 0 ? "선택을 공동 평가표에 저장하고 있습니다." : lastSyncedAt ? `${lastSyncedAt} 공동 기록 확인` : "공동 기록을 불러오고 있습니다.")}</p><button className={styles.primaryButton} disabled={savingMemory}>{savingMemory ? <Loader2 className={styles.spin} /> : <Save size={16} />} 공동 메모 저장</button></div>
     </form>}
   </>;
 }
@@ -503,7 +600,7 @@ function AiStep({ config, group, me, token, workspace, setWorkspace, busy, actio
   me: { classId: string; groupId: string; name: string };
   token: string;
   workspace: StudentWorkspace;
-  setWorkspace: (workspace: StudentWorkspace) => void;
+  setWorkspace: StudentWorkspaceSetter;
   busy: boolean;
   action: (name: string, payload?: Record<string, unknown>) => Promise<StudentWorkspace | null>;
 }) {

@@ -20,7 +20,8 @@ import {
   saveProject4Final,
   saveProject4Junior,
   saveProject4Peer,
-  saveProject4PresentationReview,
+  saveProject4PresentationMemory,
+  saveProject4PresentationRating,
   saveProject4Reflection,
   saveProject4Representative,
 } from "@/lib/server/project4-store";
@@ -90,6 +91,10 @@ function studentAiReview(value: Project4AiReview | null) {
       reason: feedback.reason,
     })),
   };
+}
+
+function studentPresentationReview(value: Project4PresentationReview | null) {
+  return value ? { ...value, submittedById: "", submittedByName: "" } : null;
 }
 
 export async function POST(request: Request) {
@@ -167,7 +172,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (action === "studentWorkspace" || action === "submitPeer" || action === "saveRepresentative" || action === "savePresentationReview" || action === "saveAiReview" || action === "saveFinal" || action === "saveReflection") {
+    if (action === "studentWorkspace" || action === "presentationWorkspace" || action === "submitPeer" || action === "saveRepresentative" || action === "savePresentationReview" || action === "updatePresentationReview" || action === "saveAiReview" || action === "saveFinal" || action === "saveReflection") {
       const access = readProject4Token(authToken, "student");
       const config = await getProject4Config();
       const found = studentFromConfig(config, access.classId || "", access.groupId || "", access.studentId || "");
@@ -180,11 +185,19 @@ export async function POST(request: Request) {
         submitPeer: 1,
         saveRepresentative: 3,
         savePresentationReview: 4,
+        updatePresentationReview: 4,
+        presentationWorkspace: 4,
         saveAiReview: 5,
         saveFinal: 6,
         saveReflection: 8,
       };
       if (actionStages[action]) requireStage(config, actionStages[action]);
+
+      if (action === "presentationWorkspace") {
+        return NextResponse.json({
+          presentation: studentPresentationReview(await getProject4PresentationReview(classId, groupId)),
+        });
+      }
 
       if (action === "submitPeer") {
         const targetId = text(body.targetId, 100);
@@ -226,37 +239,84 @@ export async function POST(request: Request) {
         });
       }
 
-      if (action === "savePresentationReview") {
+      if (action === "savePresentationReview" || action === "updatePresentationReview") {
         const submitted = body.presentation as Project4PresentationReview | undefined;
         const targetGroups = config.groups.filter((group) => group.classId === classId && group.id !== groupId);
         if (targetGroups.length === 0) throw new Error("같은 반에 평가할 다른 모둠이 없습니다.");
-        const submittedTargets = new Map(
-          (Array.isArray(submitted?.targets) ? submitted.targets : []).map((target) => [text(target.targetGroupId, 100), target]),
-        );
         const validRatings = new Set<Project4PresentationRating>(["good", "average", "needsWork"]);
-        const targets = targetGroups.map((targetGroup) => {
-          const target = submittedTargets.get(targetGroup.id);
-          const ratings = Array.isArray(target?.ratings) ? target.ratings.slice(0, 6) : [];
-          if (ratings.length !== 6 || ratings.some((rating) => !validRatings.has(rating))) {
-            throw new Error(`${targetGroup.name}의 평가 기준 6개에 모두 표시해 주세요.`);
+        const now = new Date().toISOString();
+        const saves: Array<Promise<void>> = [];
+
+        if (action === "updatePresentationReview") {
+          const targetGroupId = text(body.targetGroupId, 100);
+          const targetGroup = targetGroups.find((group) => group.id === targetGroupId);
+          const criterionIndex = Number(body.criterionIndex);
+          const rating = body.rating as Project4PresentationRating;
+          if (targetGroupId) {
+            if (!targetGroup || !Number.isInteger(criterionIndex) || criterionIndex < 0 || criterionIndex >= 6 || !validRatings.has(rating)) {
+              throw new Error("평가할 모둠과 기준을 다시 확인해 주세요.");
+            }
+            saves.push(saveProject4PresentationRating({
+              classId,
+              evaluatorGroupId: groupId,
+              evaluatorGroupName: found.group.name,
+              targetGroupId,
+              targetGroupName: targetGroup.name,
+              criterionIndex,
+              rating,
+              submittedById: studentId,
+              submittedByName: found.student.name,
+              updatedAt: now,
+            }));
+          } else if (Object.prototype.hasOwnProperty.call(body, "memorable")) {
+            saves.push(saveProject4PresentationMemory({
+              classId,
+              evaluatorGroupId: groupId,
+              evaluatorGroupName: found.group.name,
+              memorable: text(body.memorable),
+              submittedById: studentId,
+              submittedByName: found.student.name,
+              updatedAt: now,
+            }));
+          } else {
+            throw new Error("저장할 평가 내용을 확인해 주세요.");
           }
-          return {
-            targetGroupId: targetGroup.id,
-            targetGroupName: targetGroup.name,
-            ratings,
-          };
-        });
-        const memorable = text(submitted?.memorable);
-        if (!memorable) throw new Error("발표를 보며 기억해 두고 싶은 점을 적어 주세요.");
-        await saveProject4PresentationReview({
-          classId,
-          evaluatorGroupId: groupId,
-          evaluatorGroupName: found.group.name,
-          targets,
-          memorable,
-          submittedById: studentId,
-          submittedByName: found.student.name,
-          updatedAt: new Date().toISOString(),
+        } else {
+          for (const target of Array.isArray(submitted?.targets) ? submitted.targets : []) {
+            const targetGroup = targetGroups.find((group) => group.id === text(target.targetGroupId, 100));
+            if (!targetGroup || !Array.isArray(target.ratings)) continue;
+            target.ratings.slice(0, 6).forEach((rating, criterionIndex) => {
+              if (!rating || !validRatings.has(rating)) return;
+              saves.push(saveProject4PresentationRating({
+                classId,
+                evaluatorGroupId: groupId,
+                evaluatorGroupName: found.group.name,
+                targetGroupId: targetGroup.id,
+                targetGroupName: targetGroup.name,
+                criterionIndex,
+                rating,
+                submittedById: studentId,
+                submittedByName: found.student.name,
+                updatedAt: now,
+              }));
+            });
+          }
+          if (submitted && Object.prototype.hasOwnProperty.call(submitted, "memorable")) {
+            saves.push(saveProject4PresentationMemory({
+              classId,
+              evaluatorGroupId: groupId,
+              evaluatorGroupName: found.group.name,
+              memorable: text(submitted.memorable),
+              submittedById: studentId,
+              submittedByName: found.student.name,
+              updatedAt: now,
+            }));
+          }
+        }
+        if (saves.length === 0) throw new Error("저장할 평가 내용을 확인해 주세요.");
+        await Promise.all(saves);
+        return NextResponse.json({
+          presentation: studentPresentationReview(await getProject4PresentationReview(classId, groupId)),
         });
       }
 
@@ -344,11 +404,7 @@ export async function POST(request: Request) {
             selectedStudentName: representative.selectedStudentName,
             reason: representative.reason,
           } : null,
-          presentation: presentation ? {
-            ...presentation,
-            submittedById: "",
-            submittedByName: "",
-          } : null,
+          presentation: studentPresentationReview(presentation),
           aiReview: studentAiReview(aiReview),
           final: final ? { ...final, submittedById: "", submittedByName: "" } : null,
           juniorSummary: {

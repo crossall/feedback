@@ -1137,6 +1137,11 @@
   box-shadow: inset 0 0 0 1px var(--green);
 }
 
+.presentationChoices button:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
 .presentationMemory {
   padding: 18px;
   border-top: 4px solid #203f61;
@@ -1160,6 +1165,11 @@
   margin: 0;
   color: var(--muted);
   font-size: 12px;
+}
+
+.presentationActions p.presentationError {
+  color: #a43f2c;
+  font-weight: 700;
 }
 
 .presentationRecord {
@@ -1938,6 +1948,14 @@
   .presentationResultTarget {
     grid-template-columns: 1fr;
     gap: 9px;
+  }
+
+  .presentationNotice {
+    grid-template-columns: 24px 1fr;
+  }
+
+  .presentationNotice > strong {
+    grid-column: 2;
   }
 
   .stepTitle {

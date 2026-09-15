@@ -55,7 +55,7 @@ export type Project4PresentationRating = "good" | "average" | "needsWork";
 export type Project4PresentationTargetReview = {
   targetGroupId: string;
   targetGroupName: string;
-  ratings: Project4PresentationRating[];
+  ratings: Array<Project4PresentationRating | null>;
 };
 
 export type Project4PresentationReview = {
