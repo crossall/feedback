@@ -1,0 +1,16 @@
+backups/**
+tools/**
+reference/**
+output/**
+tmp/**
+artifacts/**
+.project4-*.log
+*.docx
+*.pdf
+*.zip
+*.xlsx
+*.xls
+*.csv
+*.tsbuildinfo
+~$*
+project-evaluation-platform_old.jsx

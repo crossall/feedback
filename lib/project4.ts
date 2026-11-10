@@ -7,6 +7,7 @@ export type Project4Group = {
   id: string;
   classId: string;
   name: string;
+  videoUrl: string;
   students: Project4Student[];
 };
 
@@ -15,12 +16,24 @@ export type Project4Class = {
   name: string;
 };
 
+export type Project4JuniorClassMapping = {
+  id: string;
+  juniorClassNumber: number;
+  targetClassId: string;
+};
+
+export type Project4JuniorSettings = {
+  open: boolean;
+  classMappings: Project4JuniorClassMapping[];
+};
+
 export type Project4Config = {
   title: string;
   description: string;
   workflowVersion: number;
   openStage: number;
   groupReviewOpen: boolean;
+  juniorEvaluation: Project4JuniorSettings;
   criteria: string[];
   classes: Project4Class[];
   groups: Project4Group[];
@@ -131,6 +144,75 @@ export type Project4JuniorResponse = {
   createdAt: string;
 };
 
+export type Project4JuniorQuizAnswers = {
+  question1: 1 | 2 | 3;
+  question2: 1 | 2 | 3;
+};
+
+export type Project4JuniorQuiz = {
+  id: string;
+  studentId: string;
+  evaluatorClassNumber: number;
+  evaluatorClass: string;
+  studentNumber: number;
+  evaluatorName: string;
+  targetClassId: string;
+  preAnswers: Project4JuniorQuizAnswers;
+  preScore: number;
+  preSubmittedAt: string;
+  postAnswers?: Project4JuniorQuizAnswers;
+  postScore?: number;
+  postSubmittedAt?: string;
+  updatedAt: string;
+};
+
+export type Project4JuniorGroupEvaluation = {
+  id: string;
+  studentId: string;
+  evaluatorClassNumber: number;
+  evaluatorClass: string;
+  studentNumber: number;
+  evaluatorName: string;
+  targetClassId: string;
+  targetGroupId: string;
+  understanding: 1 | 2 | 3 | 4 | 5;
+  good: string;
+  difficult: string;
+  message: string;
+  evaluationOrder: number;
+  submittedAt: string;
+  updatedAt: string;
+};
+
+export type Project4JuniorGroupSummary = {
+  total: number;
+  distribution: Record<1 | 2 | 3 | 4 | 5, number>;
+  good: string[];
+  difficult: string[];
+  messages: string[];
+};
+
+export type Project4JuniorQuestionSummary = {
+  id: "question1" | "question2";
+  title: string;
+  preCorrect: number;
+  preTotal: number;
+  prePercent: number;
+  postCorrect: number;
+  postTotal: number;
+  postPercent: number;
+  misconceptionLabel: string;
+  preMisconception: number;
+  postMisconception: number;
+};
+
+export type Project4JuniorClassSummary = {
+  participants: number;
+  preSubmitted: number;
+  postSubmitted: number;
+  questions: Project4JuniorQuestionSummary[];
+};
+
 export type Project4Reflection = {
   classId: string;
   groupId: string;
@@ -143,6 +225,89 @@ export type Project4Reflection = {
   nextExplanation: string;
   rejectedAiReason: string;
   updatedAt: string;
+};
+
+export type Project4GrowthLevel = "상" | "중" | "하";
+
+export type Project4GrowthAreaId =
+  | "draft"
+  | "revision"
+  | "individualVideo"
+  | "groupVideo"
+  | "aiJudgment"
+  | "junior"
+  | "writtenAssessment";
+
+export type Project4GrowthArea = {
+  id: Project4GrowthAreaId;
+  title: string;
+  source: string;
+  feedback: string;
+  level: Project4GrowthLevel;
+  status: "ready" | "review";
+};
+
+export type Project4GrowthEvidence = {
+  draft: {
+    kind: "individual" | "group" | "missing";
+    score: number | null;
+  };
+  revision: {
+    kind: "individual" | "group" | "missing";
+    beforeScore: number | null;
+    afterScore: number | null;
+  };
+  individualVideo: {
+    submitted: boolean;
+    submissionCount: number;
+    resubmitted: boolean;
+    note: string;
+    padletUrl: string;
+  };
+  groupVideo: {
+    submitted: boolean;
+    post: string;
+    note: string;
+    padletUrl: string;
+  };
+  aiJudgment: {
+    available: boolean;
+    answered: number;
+    correct: number | null;
+    rawCorrect?: number | null;
+    scoreAdjustment?: number;
+    total: number;
+    reasonCount: number;
+    essayScore: number | null;
+  };
+  junior: {
+    source: "exact" | "pooled" | "none" | "pending";
+    responseCount: number;
+    average: number | null;
+  };
+  writtenAssessment: {
+    submitted: boolean;
+    score: number | null;
+    total: number;
+    percentage: number | null;
+  };
+};
+
+export type Project4GrowthReport = {
+  id: string;
+  className: string;
+  groupName: string;
+  studentName: string;
+  areas: Project4GrowthArea[];
+  overallLevel: Project4GrowthLevel;
+  overallHeadline: string;
+  overallFeedback: string;
+  strengthFeedback: string;
+  nextStep: string;
+  parentPrompt: string;
+  evidence: Project4GrowthEvidence;
+  updatedAt: string;
+  edited: boolean;
 };
 
 export const project4DefaultCriteria = [
@@ -172,6 +337,7 @@ export const project4DefaultConfig: Project4Config = {
   workflowVersion: 2,
   openStage: 1,
   groupReviewOpen: false,
+  juniorEvaluation: { open: false, classMappings: [] },
   criteria: project4DefaultCriteria,
   classes: [],
   groups: [],
@@ -194,27 +360,56 @@ export function normalizeProject4Config(value?: Partial<Project4Config>): Projec
   const groupReviewOpen = typeof value?.groupReviewOpen === "boolean"
     ? value.groupReviewOpen
     : openStage >= 4;
+  const classes = Array.isArray(value?.classes)
+    ? value.classes.map((item) => ({ id: String(item.id), name: String(item.name).trim() })).filter((item) => item.id && item.name)
+    : [];
+  const groups = Array.isArray(value?.groups)
+    ? value.groups.map((group) => ({
+      id: String(group.id),
+      classId: String(group.classId),
+      name: String(group.name).trim(),
+      videoUrl: String(group.videoUrl || "").trim(),
+      students: Array.isArray(group.students)
+        ? group.students.map((student) => ({ id: String(student.id), name: String(student.name).trim() })).filter((student) => student.id && student.name)
+        : [],
+    })).filter((group) => group.id && group.classId && group.name)
+    : [];
+  const configuredMappings = Array.isArray(value?.juniorEvaluation?.classMappings)
+    ? value.juniorEvaluation.classMappings.flatMap((mapping) => {
+      const targetClassId = String(mapping.targetClassId || "");
+      const juniorClassNumber = Math.round(Number(mapping.juniorClassNumber));
+      if (!classes.some((item) => item.id === targetClassId) || juniorClassNumber < 1 || juniorClassNumber > 20) return [];
+      return [{ id: String(mapping.id || `junior-${targetClassId}`), juniorClassNumber, targetClassId }];
+    })
+    : [];
+  const inferredMappings = classes.flatMap((item, index) => {
+    const match = item.name.match(/(\d+)\s*반/);
+    const juniorClassNumber = match ? Number(match[1]) : index + 1;
+    return juniorClassNumber > 0 && juniorClassNumber <= 20
+      ? [{ id: `junior-${item.id}`, juniorClassNumber, targetClassId: item.id }]
+      : [];
+  });
+  const uniqueMappings = (configuredMappings.length ? configuredMappings : inferredMappings).filter((mapping, index, all) => (
+    all.findIndex((item) => item.juniorClassNumber === mapping.juniorClassNumber) === index
+  ));
   return {
     title: value?.title?.trim() || project4DefaultConfig.title,
     description: !description || description === project4LegacyDescription ? project4DefaultDescription : description,
     workflowVersion: 2,
     openStage,
     groupReviewOpen,
+    juniorEvaluation: {
+      open: typeof value?.juniorEvaluation?.open === "boolean" ? value.juniorEvaluation.open : openStage >= 7,
+      classMappings: uniqueMappings,
+    },
     criteria: criteria.length === 6 ? criteria : [...project4DefaultCriteria],
-    classes: Array.isArray(value?.classes)
-      ? value.classes.map((item) => ({ id: String(item.id), name: String(item.name).trim() })).filter((item) => item.id && item.name)
-      : [],
-    groups: Array.isArray(value?.groups)
-      ? value.groups.map((group) => ({
-        id: String(group.id),
-        classId: String(group.classId),
-        name: String(group.name).trim(),
-        students: Array.isArray(group.students)
-          ? group.students.map((student) => ({ id: String(student.id), name: String(student.name).trim() })).filter((student) => student.id && student.name)
-          : [],
-      })).filter((group) => group.id && group.classId && group.name)
-      : [],
+    classes,
+    groups,
   };
+}
+
+export function scoreProject4JuniorQuiz(answers: Project4JuniorQuizAnswers) {
+  return Number(answers.question1 === 2) + Number(answers.question2 === 1);
 }
 
 export function isProject4StageOpen(config: Project4Config, stage: number) {

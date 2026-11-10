@@ -10,6 +10,9 @@ import {
 } from "@/lib/server/project4-store";
 import { getTeacherApiKeys } from "@/lib/server/teacher-store";
 import type { Project4AiFeedback, Project4AiReview } from "@/lib/project4";
+import { runWithProjectInstance } from "@/lib/server/project-instance-context";
+import { getProjectInstanceById } from "@/lib/server/project-instance-store";
+import type { ProjectRequestInstance } from "@/lib/server/project-instance-context";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -57,11 +60,46 @@ function parseFeedbacks(raw: string): GeneratedFeedback[] {
   return parsed.feedbacks;
 }
 
+type Project4ClaudeBody = { token?: string; fileName?: string; pdfData?: string; instanceId?: string };
+
 export async function POST(request: Request) {
+  try {
+    const body = await request.json() as Project4ClaudeBody;
+    const storedInstance = body.instanceId
+      ? await getProjectInstanceById(body.instanceId, "project4")
+      : null;
+    if (body.instanceId && !storedInstance) {
+      return NextResponse.json({ error: "프로젝트 주소를 확인해 주세요." }, { status: 404 });
+    }
+    const instance: ProjectRequestInstance = storedInstance
+      ? { ...storedInstance, legacy: false }
+      : {
+        id: "project4",
+        teacherId: "4523",
+        slug: "project4",
+        name: "계절의 비밀",
+        template: "project4",
+        copiedRubric: true,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        legacy: true,
+      };
+    return await runWithProjectInstance(instance, () => handleProject4Claude(body, instance));
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "모둠 AI 피드백을 만들지 못했습니다." },
+      { status: 400 },
+    );
+  }
+}
+
+async function handleProject4Claude(body: Project4ClaudeBody, instance: ProjectRequestInstance) {
   let generationLock: { classId: string; groupId: string; generationId: string } | null = null;
   try {
-    const body = await request.json() as { token?: string; fileName?: string; pdfData?: string };
     const access = readProject4Token(body.token || "", "student");
+    if (access.instanceId !== instance.id) {
+      return NextResponse.json({ error: "다른 프로젝트의 로그인 정보입니다. 다시 들어와 주세요." }, { status: 401 });
+    }
     const config = await getProject4Config();
     if (config.openStage < 5) {
       return NextResponse.json({ error: "5단계는 아직 교사가 열지 않았습니다." }, { status: 400 });
@@ -84,8 +122,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "모둠 스크립트 PDF를 선택해 주세요." }, { status: 400 });
     }
 
-    const apiKeys = await getTeacherApiKeys("4523");
-    const apiKey = process.env.PROJECT4_ANTHROPIC_API_KEY?.trim() || apiKeys.anthropic;
+    const apiKeys = await getTeacherApiKeys(instance.teacherId);
+    const apiKey = instance.legacy
+      ? process.env.PROJECT4_ANTHROPIC_API_KEY?.trim() || apiKeys.anthropic
+      : apiKeys.anthropic;
     if (!apiKey) {
       return NextResponse.json(
         { error: "Claude API 키가 없습니다. 교사 보관함에 Claude API 키를 저장해 주세요." },

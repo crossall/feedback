@@ -3,10 +3,12 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "crypto";
 
 export type Project4Access = {
+  instanceId: string;
   role: "teacher" | "student" | "junior";
   classId?: string;
   groupId?: string;
   studentId?: string;
+  studentNumber?: string;
   name?: string;
   evaluatorClass?: string;
   exp: number;

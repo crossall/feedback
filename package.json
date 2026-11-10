@@ -4,9 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint app lib proxy.ts next.config.ts tools/build-system-docs.mjs",
+    "typecheck": "tsc --noEmit",
+    "docs:system": "node tools/build-system-docs.mjs",
+    "docs:system:check": "node tools/build-system-docs.mjs --check",
+    "pipeline": "npm run docs:system:check && npm run lint && npm run typecheck && npm run build"
   },
   "dependencies": {
     "@vercel/blob": "^2.4.0",

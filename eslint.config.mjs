@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "project-evaluation-platform.jsx",
+    "project-evaluation-platform_old.jsx",
   ]),
 ]);
 

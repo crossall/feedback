@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>프로젝트 탐구·피드백 기록지</title>
+  <style>
+    :root {
+      --ink: #222718;
+      --muted: #68705a;
+      --line: #cbd1bd;
+      --soft: #f6f8ef;
+      --accent: #66792b;
+      --accent-soft: #eef3da;
+      --gold: #a37518;
+      --gold-soft: #fff7df;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: #ecefe6; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #ecefe6;
+      font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      word-break: keep-all;
+    }
+
+    button { font: inherit; }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      justify-content: flex-end;
+      width: min(210mm, calc(100% - 24px));
+      margin: auto;
+      padding: 12px 4px;
+    }
+
+    .print-button {
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--accent);
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(61, 76, 24, .22);
+    }
+
+    .page {
+      width: min(210mm, calc(100% - 24px));
+      min-height: 297mm;
+      margin: 0 auto 28px;
+      padding: 14mm;
+      background: #fff;
+      box-shadow: 0 12px 36px rgba(42, 49, 26, .14);
+    }
+
+    .eyebrow {
+      margin: 0 0 4px;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .13em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(26px, 5vw, 37px);
+      line-height: 1.18;
+      letter-spacing: -.04em;
+    }
+
+    .lead {
+      margin: 7px 0 13px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .privacy {
+      margin: 0 0 12px;
+      padding: 9px 11px;
+      border: 1px solid #ced8a7;
+      border-radius: 9px;
+      background: var(--accent-soft);
+      color: #4e5c26;
+      font-size: 10px;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 13px;
+    }
+
+    .field {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      min-height: 32px;
+      padding: 6px 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .field strong {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .field span { flex: 1; border-bottom: 1px solid #818a73; }
+
+    .section {
+      margin-top: 13px;
+      break-inside: avoid;
+    }
+
+    .section-title {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin: 0 0 7px;
+      font-size: 16px;
+    }
+
+    .number {
+      display: grid;
+      width: 27px;
+      height: 27px;
+      place-items: center;
+      border-radius: 8px;
+      color: #fff;
+      background: var(--accent);
+      font-size: 12px;
+    }
+
+    .question-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .write-box {
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+    }
+
+    .write-box.wide { grid-column: 1 / -1; }
+
+    .write-box h3 {
+      margin: 0 0 3px;
+      color: #526122;
+      font-size: 11px;
+    }
+
+    .write-box p {
+      margin: 0 0 4px;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .ruled {
+      height: 55px;
+      background: repeating-linear-gradient(to bottom, transparent 0, transparent 20px, #dce0d2 21px);
+    }
+
+    .ruled.tall { height: 76px; }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      min-width: 650px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th, td { border: 1px solid #bdc5ae; }
+
+    thead th {
+      padding: 7px 6px;
+      color: #fff;
+      background: var(--accent);
+      font-size: 9px;
+      text-align: center;
+    }
+
+    tbody th {
+      width: 5%;
+      padding: 6px;
+      color: var(--accent);
+      background: var(--soft);
+      font-size: 11px;
+    }
+
+    tbody td {
+      height: 63px;
+      padding: 6px;
+      vertical-align: top;
+    }
+
+    .cell-lines {
+      height: 49px;
+      background: repeating-linear-gradient(to bottom, transparent 0, transparent 18px, #dce0d2 19px);
+    }
+
+    .source-col { width: 24%; }
+    .evidence-col { width: 31%; }
+    .trust-col { width: 19%; }
+    .link-col { width: 21%; }
+
+    .hint {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    .page-mark {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 9px;
+      text-align: right;
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--accent);
+    }
+
+    .page-header h2 { margin: 0; font-size: 21px; }
+    .page-header span { color: var(--muted); font-size: 10px; }
+
+    .feedback-grid {
+      display: grid;
+      grid-template-columns: .75fr 1.4fr 1.2fr;
+      gap: 8px;
+    }
+
+    .feedback-box {
+      min-height: 100px;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+    }
+
+    .feedback-box h3 {
+      margin: 0 0 5px;
+      color: #526122;
+      font-size: 11px;
+    }
+
+    .choice {
+      display: block;
+      margin: 6px 0;
+      color: #525a48;
+      font-size: 10px;
+    }
+
+    .box {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 6px;
+      border: 1.4px solid #737c68;
+      border-radius: 3px;
+      vertical-align: -2px;
+    }
+
+    .decision {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 13px;
+      margin-top: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: var(--gold-soft);
+      color: #645019;
+      font-size: 10px;
+    }
+
+    .change-table thead th:nth-child(1) { width: 8%; }
+    .change-table thead th:nth-child(2),
+    .change-table thead th:nth-child(3) { width: 28%; }
+    .change-table thead th:nth-child(4) { width: 36%; }
+    .change-table tbody td { height: 68px; }
+
+    .reflection-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .reflection-grid .write-box:last-child { grid-column: 1 / -1; }
+
+    .exit-check {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+      padding: 10px;
+      border: 1px solid #d9bf72;
+      border-radius: 9px;
+      background: var(--gold-soft);
+      color: #5e4b19;
+      font-size: 9.5px;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding: 28px 19px; }
+      .meta, .question-grid, .feedback-grid, .reflection-grid, .exit-check { grid-template-columns: 1fr; }
+      .write-box.wide, .reflection-grid .write-box:last-child { grid-column: auto; }
+      .table-wrap { margin-right: -19px; padding-right: 19px; }
+      .page-header { display: block; }
+    }
+
+    @page { size: A4; margin: 10mm; }
+
+    @media print {
+      html, body { background: #fff; }
+      .toolbar, .print-button { display: none !important; }
+      .page {
+        width: auto;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+      }
+      .page:first-of-type { break-after: page; }
+      .table-wrap { overflow: visible; }
+      table { min-width: 0; }
+      thead th, .number, .privacy, .decision, .exit-check { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      tr, .write-box, .feedback-box { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="print-button" type="button" onclick="window.print()">인쇄하기</button>
+  </div>
+
+  <main>
+    <article class="page">
+      <header>
+        <p class="eyebrow">PROJECT LEARNING WORKSHEET · 1/2</p>
+        <h1>프로젝트 탐구 기록지</h1>
+        <p class="lead">탐구 질문을 세우고, 믿을 만한 증거를 골라 질문과 연결해 보세요.</p>
+      </header>
+
+      <p class="privacy"><strong>개인정보 보호:</strong> 이름·학번·연락처 등 개인을 식별할 수 있는 정보는 쓰지 않습니다. 공동 작업에는 교사가 정한 익명 프로젝트 코드만 사용하세요.</p>
+
+      <section class="meta" aria-label="프로젝트 기본 정보">
+        <div class="field"><strong>익명 프로젝트 코드</strong><span></span></div>
+        <div class="field"><strong>프로젝트 주제</strong><span></span></div>
+        <div class="field"><strong>기록 회차</strong><span></span></div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><span class="number">1</span>탐구 질문 세우기</h2>
+        <div class="question-grid">
+          <div class="write-box wide">
+            <h3>우리가 해결하거나 알아보려는 핵심 질문</h3>
+            <p>한 문장으로 쓰고, 여러 답을 탐색할 수 있는 질문인지 확인하세요.</p>
+            <div class="ruled"></div>
+          </div>
+          <div class="write-box">
+            <h3>이 질문이 중요한 이유</h3>
+            <p>누구에게, 어떤 상황에서, 왜 의미가 있나요?</p>
+            <div class="ruled tall"></div>
+          </div>
+          <div class="write-box">
+            <h3>현재 생각과 더 알아야 할 것</h3>
+            <p>이미 아는 것과 아직 확인하지 못한 것을 구분하세요.</p>
+            <div class="ruled tall"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><span class="number">2</span>증거 수집하고 연결하기</h2>
+        <div class="table-wrap">
+          <table aria-label="탐구 증거 기록표">
+            <thead>
+              <tr>
+                <th scope="col">번호</th>
+                <th scope="col" class="source-col">출처 유형과 제목<br>공개 자료만 기록</th>
+                <th scope="col" class="evidence-col">찾은 핵심 증거<br>사실·수치·관찰</th>
+                <th scope="col" class="trust-col">믿을 만한가?<br>작성 주체·날짜·근거</th>
+                <th scope="col" class="link-col">탐구 질문과의 연결</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">1</th><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td></tr>
+              <tr><th scope="row">2</th><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td></tr>
+              <tr><th scope="row">3</th><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td></tr>
+              <tr><th scope="row">4</th><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="hint">※ 개인 대화나 비공개 게시물처럼 타인의 개인정보가 담긴 자료는 옮기지 않습니다. 인용한 공개 자료는 다시 찾을 수 있도록 제목과 출처 유형을 기록하세요.</p>
+      </section>
+
+      <section class="section">
+        <div class="write-box">
+          <h3>증거를 살펴본 뒤 바뀐 생각 / 다음에 확인할 질문</h3>
+          <div class="ruled tall"></div>
+        </div>
+      </section>
+
+      <p class="page-mark">1 / 2 · 탐구와 증거</p>
+    </article>
+
+    <article class="page">
+      <header class="page-header">
+        <h2>프로젝트 피드백·성찰 기록지</h2>
+        <span>익명 프로젝트 코드: ____________________</span>
+      </header>
+
+      <section class="section">
+        <h2 class="section-title"><span class="number">3</span>피드백 검토하기</h2>
+        <div class="feedback-grid">
+          <div class="feedback-box">
+            <h3>피드백 출처 유형</h3>
+            <span class="choice"><i class="box"></i>교사</span>
+            <span class="choice"><i class="box"></i>동료</span>
+            <span class="choice"><i class="box"></i>자기 점검</span>
+            <span class="choice"><i class="box"></i>교사가 검토한 AI 제안</span>
+          </div>
+          <div class="feedback-box">
+            <h3>받은 피드백의 핵심</h3>
+            <div class="ruled tall"></div>
+          </div>
+          <div class="feedback-box">
+            <h3>기준·증거와 비교한 나의 판단</h3>
+            <div class="ruled tall"></div>
+          </div>
+        </div>
+        <div class="decision">
+          <strong>반영 결정</strong>
+          <span><i class="box"></i>반영</span>
+          <span><i class="box"></i>부분 반영</span>
+          <span><i class="box"></i>반영하지 않음</span>
+          <span>이유: ________________________________________________</span>
+        </div>
+        <p class="hint">※ 피드백을 준 사람의 이름은 기록하지 않습니다. 내용이 루브릭 기준과 실제 증거에 맞는지 먼저 확인하세요.</p>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><span class="number">4</span>변화 기록하기</h2>
+        <div class="table-wrap">
+          <table class="change-table" aria-label="피드백을 바탕으로 한 변화 기록표">
+            <thead>
+              <tr>
+                <th scope="col">번호</th>
+                <th scope="col">변경 전</th>
+                <th scope="col">변경 후</th>
+                <th scope="col">변경한 이유와 더 나아졌다는 증거</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">1</th><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td></tr>
+              <tr><th scope="row">2</th><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td></tr>
+              <tr><th scope="row">3</th><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td><td><div class="cell-lines"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title"><span class="number">5</span>과정 성찰하기</h2>
+        <div class="reflection-grid">
+          <div class="write-box">
+            <h3>가장 설득력 있었던 증거는 무엇이며, 왜 그렇게 판단했나요?</h3>
+            <div class="ruled tall"></div>
+          </div>
+          <div class="write-box">
+            <h3>피드백을 검토하고 선택하는 과정에서 무엇을 배웠나요?</h3>
+            <div class="ruled tall"></div>
+          </div>
+          <div class="write-box">
+            <h3>다시 시작한다면 어떤 탐구 방법이나 작업 순서를 바꾸고 싶나요?</h3>
+            <div class="ruled tall"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="exit-check" aria-label="제출 전 점검">
+        <span><i class="box"></i>주장과 증거가 연결되어 있다.</span>
+        <span><i class="box"></i>피드백 반영 이유가 드러난다.</span>
+        <span><i class="box"></i>개인 식별정보가 남아 있지 않다.</span>
+      </section>
+
+      <p class="page-mark">2 / 2 · 피드백, 변화, 성찰</p>
+    </article>
+  </main>
+</body>
+</html>

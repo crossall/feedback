@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>교사용 안전한 AI 프롬프트 가이드</title>
+  <style>
+    :root {
+      --ink: #1d2638;
+      --muted: #616b7c;
+      --line: #c9d0db;
+      --soft: #f5f7fa;
+      --accent: #3559a6;
+      --accent-soft: #eaf0ff;
+      --safe: #17745e;
+      --safe-soft: #e7f5f1;
+      --danger: #a34b3e;
+      --danger-soft: #fff0ed;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: #e8ecf3; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #e8ecf3;
+      font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.55;
+      word-break: keep-all;
+    }
+
+    button { font: inherit; }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      justify-content: flex-end;
+      width: min(210mm, calc(100% - 24px));
+      margin: auto;
+      padding: 12px 4px;
+    }
+
+    .print-button {
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--accent);
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(39, 65, 127, .22);
+    }
+
+    .sheet {
+      width: min(210mm, calc(100% - 24px));
+      min-height: 297mm;
+      margin: 0 auto 28px;
+      padding: 14mm 14mm;
+      background: #fff;
+      box-shadow: 0 12px 36px rgba(27, 37, 58, .14);
+    }
+
+    .eyebrow {
+      margin: 0 0 4px;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .13em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(26px, 5vw, 38px);
+      line-height: 1.18;
+      letter-spacing: -.04em;
+    }
+
+    .lead {
+      margin: 8px 0 15px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .principles {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 9px;
+      margin-bottom: 14px;
+    }
+
+    .principle {
+      padding: 11px;
+      border: 1px solid #b8c6e8;
+      border-radius: 10px;
+      background: var(--accent-soft);
+      break-inside: avoid;
+    }
+
+    .principle b {
+      display: block;
+      margin-bottom: 4px;
+      color: #284887;
+      font-size: 13px;
+    }
+
+    .principle span { color: #52627f; font-size: 10px; }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      letter-spacing: -.015em;
+    }
+
+    .section { margin-top: 14px; break-inside: avoid; }
+
+    .section-label {
+      display: inline-block;
+      margin-bottom: 5px;
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .1em;
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+
+    .compare-card {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    .compare-card h3 {
+      margin: 0;
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+
+    .compare-card ul {
+      margin: 0;
+      padding: 9px 12px 9px 28px;
+      color: #4f5a6b;
+      font-size: 10px;
+    }
+
+    .compare-card li + li { margin-top: 4px; }
+    .avoid h3 { color: var(--danger); background: var(--danger-soft); }
+    .replace h3 { color: var(--safe); background: var(--safe-soft); }
+
+    .formula {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .formula span {
+      padding: 5px 8px;
+      border: 1px solid #b9c5df;
+      border-radius: 999px;
+      color: #38517e;
+      background: #f5f8ff;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .formula i {
+      align-self: center;
+      color: #8692a8;
+      font-style: normal;
+    }
+
+    .prompt-box {
+      padding: 12px 14px;
+      border: 1.5px solid #8fa3d0;
+      border-radius: 10px;
+      background: #fbfcff;
+      color: #303b50;
+      font-size: 10.5px;
+      line-height: 1.62;
+    }
+
+    .prompt-box p { margin: 0 0 7px; }
+    .prompt-box p:last-child { margin-bottom: 0; }
+
+    .blank {
+      display: inline-block;
+      min-width: 118px;
+      height: 15px;
+      border-bottom: 1px solid #75839b;
+      vertical-align: -2px;
+    }
+
+    .output-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 3px 12px;
+      margin: 4px 0 0;
+      padding-left: 18px;
+    }
+
+    .check-grids {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+
+    .check-card {
+      padding: 10px 11px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    .check-card h3 {
+      margin: 0 0 6px;
+      color: var(--accent);
+      font-size: 12px;
+    }
+
+    .check-card p {
+      margin: 5px 0;
+      color: #4e586a;
+      font-size: 10px;
+    }
+
+    .box {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 6px;
+      border: 1.4px solid #69758a;
+      border-radius: 3px;
+      vertical-align: -2px;
+    }
+
+    .teacher-line {
+      margin-top: 13px;
+      padding: 10px 12px;
+      border-left: 4px solid var(--safe);
+      background: var(--safe-soft);
+      color: #285d51;
+      font-size: 10px;
+      break-inside: avoid;
+    }
+
+    footer {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 9px;
+      text-align: right;
+    }
+
+    @media (max-width: 720px) {
+      .sheet { padding: 28px 19px; }
+      .principles, .compare, .check-grids, .output-list { grid-template-columns: 1fr; }
+      .formula i { display: none; }
+    }
+
+    @page { size: A4; margin: 10mm; }
+
+    @media print {
+      html, body { background: #fff; }
+      body { font-size: 10pt; }
+      .toolbar, .print-button { display: none !important; }
+      .sheet {
+        width: auto;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+      }
+      .principle, .compare-card h3, .prompt-box, .teacher-line { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="print-button" type="button" onclick="window.print()">인쇄하기</button>
+  </div>
+
+  <main class="sheet">
+    <header>
+      <p class="eyebrow">교사용 QUICK GUIDE</p>
+      <h1>안전한 AI 프롬프트 가이드</h1>
+      <p class="lead">개인정보 없이, 루브릭과 증거를 중심으로 요청하고, 결과는 반드시 교사가 검토합니다.</p>
+    </header>
+
+    <section class="principles" aria-label="AI 활용 핵심 원칙">
+      <div class="principle"><b>1 · 개인정보는 입력하지 않기</b><span>이름, 학번, 연락처, 얼굴, 계정 정보와 식별 가능한 맥락을 제거합니다.</span></div>
+      <div class="principle"><b>2 · 기준과 증거를 함께 주기</b><span>학습 목표·루브릭·익명화한 작업물 일부를 구분해 제공합니다.</span></div>
+      <div class="principle"><b>3 · 교사가 최종 검토하기</b><span>사실성, 공정성, 표현, 교육적 적절성을 확인하고 직접 결정합니다.</span></div>
+    </section>
+
+    <section class="section">
+      <span class="section-label">01 · 안전하게 바꾸기</span>
+      <h2>보내지 않을 정보와 안전한 대체</h2>
+      <div class="compare">
+        <div class="compare-card avoid">
+          <h3>입력하지 않기</h3>
+          <ul>
+            <li>학생 이름, 학번, 생년월일, 연락처, 이메일</li>
+            <li>얼굴·목소리·계정명·문서 속 숨은 작성자 정보</li>
+            <li>개인을 짐작하게 하는 민감한 가정·건강·상담 정보</li>
+          </ul>
+        </div>
+        <div class="compare-card replace">
+          <h3>이렇게 바꾸기</h3>
+          <ul>
+            <li>개인정보를 삭제한 작업물 일부 또는 익명 코드</li>
+            <li>평가에 꼭 필요한 문장·표·관찰 증거만 최소 제공</li>
+            <li>학교 승인 도구와 정책을 확인하고 필요한 범위만 사용</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <span class="section-label">02 · 프롬프트 구성하기</span>
+      <h2>다섯 요소를 빠짐없이 연결하세요</h2>
+      <div class="formula" aria-label="프롬프트 구성 공식">
+        <span>교사의 목적</span><i>+</i><span>학습 목표</span><i>+</i><span>루브릭 기준</span><i>+</i><span>익명화한 증거</span><i>+</i><span>출력 형식</span>
+      </div>
+
+      <div class="prompt-box" aria-label="안전한 프롬프트 작성 틀">
+        <p><strong>역할과 한계</strong> — 당신은 교사의 검토를 돕는 조언자입니다. 최종 평가를 확정하거나 학생의 능력·의도를 추정하지 마세요. 제공되지 않은 사실은 만들지 말고 불확실성을 표시하세요.</p>
+        <p><strong>목적</strong> — 나는 <span class="blank"></span>을 돕는 형성 피드백 초안을 검토하려고 합니다.</p>
+        <p><strong>학습 목표</strong> — <span class="blank"></span></p>
+        <p><strong>루브릭 기준</strong> — <span class="blank"></span></p>
+        <p><strong>익명화한 작업물 증거</strong> — 개인을 식별할 수 있는 정보를 모두 제거한 뒤, 필요한 부분만 아래에 제공합니다.<br><span class="blank" style="min-width: 100%;"></span></p>
+        <p><strong>요청</strong> — 다음 형식으로 제안하세요.</p>
+        <ol class="output-list">
+          <li>기준별로 확인되는 증거</li>
+          <li>증거와 연결된 강점</li>
+          <li>다음 행동 한 가지와 이유</li>
+          <li>교사가 확인할 불확실한 점</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section">
+      <span class="section-label">03 · 전후 점검하기</span>
+      <div class="check-grids">
+        <div class="check-card">
+          <h3>AI에 보내기 전</h3>
+          <p><i class="box"></i>개인 식별정보와 숨은 메타데이터를 제거했다.</p>
+          <p><i class="box"></i>학교의 AI·개인정보 보호 지침을 확인했다.</p>
+          <p><i class="box"></i>학습 목표와 루브릭 기준을 분명히 제시했다.</p>
+          <p><i class="box"></i>목적에 필요한 증거만 최소한으로 제공했다.</p>
+        </div>
+        <div class="check-card">
+          <h3>AI 응답을 받은 후</h3>
+          <p><i class="box"></i>모든 판단이 실제 증거와 연결되는지 확인했다.</p>
+          <p><i class="box"></i>편향, 과장, 사실 오류, 근거 없는 추정을 걸러냈다.</p>
+          <p><i class="box"></i>학생이 이해하고 행동할 수 있는 표현으로 고쳤다.</p>
+          <p><i class="box"></i>교사가 반영 여부와 최종 피드백을 결정했다.</p>
+        </div>
+      </div>
+    </section>
+
+    <p class="teacher-line"><strong>기억하세요.</strong> AI의 응답은 초안이자 검토 대상입니다. 성취 수준 판단, 피드백 전달, 학생 지원에 관한 최종 책임은 교사에게 있습니다.</p>
+    <footer>개인정보 최소화 · 루브릭 기반 증거 · 교사의 최종 검토</footer>
+  </main>
+</body>
+</html>

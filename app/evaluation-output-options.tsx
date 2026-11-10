@@ -7,6 +7,7 @@ export default function EvaluationOutputOptionsField({
   onChange,
   allowGoogleDocsAppend,
   googleAuth,
+  teacherManaged = false,
 }: {
   value: EvaluationOutputOptions;
   onChange: (value: EvaluationOutputOptions) => void;
@@ -16,6 +17,7 @@ export default function EvaluationOutputOptionsField({
     connected: boolean;
     connectHref: string;
   };
+  teacherManaged?: boolean;
 }) {
   function update(patch: Partial<EvaluationOutputOptions>) {
     onChange({ ...value, ...patch });
@@ -23,8 +25,8 @@ export default function EvaluationOutputOptionsField({
 
   return (
     <fieldset className="output-options">
-      <legend>평가 결과 제공 방식 <b>*</b></legend>
-      <p>학생에게 제공할 방식을 하나 이상 선택하세요. 선택 내용은 이 평가에 함께 저장됩니다.</p>
+      <legend>{teacherManaged ? "평가 결과 처리 방식" : "평가 결과 제공 방식"} <b>*</b></legend>
+      <p>{teacherManaged ? "교사가 확인하거나 학생에게 전달할 방식을 선택하세요." : "학생에게 제공할 방식을 하나 이상 선택하세요. 선택 내용은 이 평가에 함께 저장됩니다."}</p>
 
       <label className={value.showOnScreen ? "selected" : ""}>
         <input
@@ -34,7 +36,7 @@ export default function EvaluationOutputOptionsField({
         />
         <span className="option-number">01</span>
         <span>
-          <strong>화면 아래에 결과 표시</strong>
+          <strong>{teacherManaged ? "교사 화면에 결과 표시" : "화면 아래에 결과 표시"}</strong>
           <small>평가가 끝나면 결과 영역으로 자동 스크롤합니다.</small>
         </span>
       </label>
@@ -92,7 +94,7 @@ export default function EvaluationOutputOptionsField({
         />
         <span className="option-number">{allowGoogleDocsAppend ? "03" : "02"}</span>
         <span>
-          <strong>보고서 파일 제공</strong>
+          <strong>{teacherManaged ? "보고서 파일 만들기" : "보고서 파일 제공"}</strong>
           <small>정해진 보고서 틀에 평가 데이터만 채워 토큰을 추가로 사용하지 않습니다.</small>
         </span>
         {value.reportFormat !== "none" && (

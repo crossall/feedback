@@ -7,10 +7,19 @@ import {
   type ClassConfig,
 } from "@/lib/class-config";
 import { getTeacherApiKeys } from "@/lib/server/teacher-store";
+import { studentSubmissionLinksEnabled } from "@/lib/feature-flags";
+import { isTeacherSessionFor } from "@/lib/server/teacher-accounts";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  if (!studentSubmissionLinksEnabled) {
+    return NextResponse.json(
+      { error: "학생용 평가 링크 기능은 현재 사용하지 않습니다." },
+      { status: 410 },
+    );
+  }
+
   try {
     const body = (await request.json()) as Partial<ClassConfig> & {
       teacherId?: string;
@@ -18,6 +27,12 @@ export async function POST(request: Request) {
     };
     const model = body.model?.trim() || defaultModelForProvider("openai");
     const provider = providerFromModel(model, body.provider);
+    if (!body.teacherId || !await isTeacherSessionFor(body.teacherId)) {
+      return NextResponse.json(
+        { error: "로그인 정보가 일치하지 않습니다." },
+        { status: 401 },
+      );
+    }
     const apiKeys = body.teacherId
       ? await getTeacherApiKeys(body.teacherId)
       : { openai: "", anthropic: "" };
@@ -32,6 +47,7 @@ export async function POST(request: Request) {
       instruction: body.instruction?.trim() ?? "",
       outputOptions: normalizeOutputOptions(body.outputOptions),
       teacherId: body.teacherId?.trim() || undefined,
+      submissionMode: "student",
     };
 
     if (!apiKeys[provider] || !config.classTitle || !config.assignment || !config.rubric) {

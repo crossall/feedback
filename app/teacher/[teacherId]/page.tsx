@@ -1,10 +1,7 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { isTeacherId } from "@/lib/teacher-evaluations";
+import { getTeacherSessionId } from "@/lib/server/teacher-accounts";
 import TeacherDashboard from "./dashboard";
-
-export function generateStaticParams() {
-  return [{ teacherId: "4523" }, { teacherId: "6556" }, { teacherId: "7244" }];
-}
 
 export default async function TeacherDashboardPage({
   params,
@@ -12,6 +9,7 @@ export default async function TeacherDashboardPage({
   params: Promise<{ teacherId: string }>;
 }) {
   const { teacherId } = await params;
-  if (!isTeacherId(teacherId)) notFound();
+  const sessionTeacherId = await getTeacherSessionId();
+  if (!isTeacherId(teacherId) || sessionTeacherId !== teacherId) redirect("/");
   return <TeacherDashboard teacherId={teacherId} />;
 }

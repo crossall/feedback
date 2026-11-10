@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI 피드백 교사 검토표</title>
+  <style>
+    :root {
+      --ink: #291b30;
+      --muted: #716276;
+      --line: #d4c7d8;
+      --soft: #faf5fb;
+      --accent: #7a3b86;
+      --accent-soft: #f3e8f6;
+      --warn: #fff7df;
+      --warn-line: #e9cc72;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: #eee8f0; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #eee8f0;
+      font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      word-break: keep-all;
+    }
+
+    button { font: inherit; }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 4;
+      display: flex;
+      justify-content: flex-end;
+      width: min(297mm, calc(100% - 24px));
+      margin: auto;
+      padding: 12px 4px;
+    }
+
+    .print-button {
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--accent);
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(82, 36, 94, .22);
+    }
+
+    .sheet {
+      width: min(297mm, calc(100% - 24px));
+      min-height: 210mm;
+      margin: 0 auto 28px;
+      padding: 12mm 13mm;
+      background: #fff;
+      box-shadow: 0 12px 36px rgba(48, 30, 54, .14);
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr 1.1fr;
+      gap: 24px;
+      align-items: end;
+      margin-bottom: 12px;
+    }
+
+    .eyebrow {
+      margin: 0 0 4px;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .13em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(25px, 4vw, 36px);
+      line-height: 1.18;
+      letter-spacing: -.035em;
+    }
+
+    .subtitle {
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .principle {
+      margin: 0;
+      padding: 10px 12px;
+      border: 1px solid var(--warn-line);
+      border-radius: 9px;
+      background: var(--warn);
+      color: #5e4a16;
+      font-size: 11px;
+    }
+
+    .principle strong { display: block; margin-bottom: 2px; }
+
+    .meta {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr;
+      gap: 9px;
+      margin-bottom: 10px;
+    }
+
+    .field {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      min-height: 32px;
+      padding: 6px 9px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .field strong {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .field span { flex: 1; border-bottom: 1px solid #8b7b90; }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 7px;
+      margin: 0 0 10px;
+      padding: 0;
+      list-style: none;
+      counter-reset: step;
+    }
+
+    .steps li {
+      position: relative;
+      min-height: 48px;
+      padding: 8px 8px 8px 34px;
+      border-radius: 8px;
+      background: var(--accent-soft);
+      color: #56305f;
+      font-size: 10px;
+      counter-increment: step;
+    }
+
+    .steps li::before {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      display: grid;
+      width: 19px;
+      height: 19px;
+      place-items: center;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--accent);
+      content: counter(step);
+      font-weight: 800;
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      min-width: 900px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th, td { border: 1px solid #c4b6c8; }
+
+    thead th {
+      padding: 8px;
+      color: #fff;
+      background: var(--accent);
+      font-size: 11px;
+      text-align: center;
+    }
+
+    thead th:nth-child(1) { width: 5%; }
+    thead th:nth-child(2) { width: 35%; }
+    thead th:nth-child(3) { width: 27%; }
+    thead th:nth-child(4) { width: 33%; }
+
+    .main-row th {
+      padding: 9px 5px;
+      background: var(--soft);
+      color: var(--accent);
+      font-size: 13px;
+    }
+
+    .main-row td {
+      height: 52px;
+      padding: 6px 8px;
+      vertical-align: top;
+    }
+
+    .ruled {
+      height: 39px;
+      background: repeating-linear-gradient(to bottom, transparent 0, transparent 18px, #e0d7e2 19px);
+    }
+
+    .choices {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px 12px;
+      align-items: center;
+      min-height: 38px;
+      color: #4b3b50;
+      font-size: 11px;
+    }
+
+    .box {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      margin-right: 5px;
+      border: 1.5px solid #77657c;
+      border-radius: 3px;
+      vertical-align: -2px;
+    }
+
+    .reason-row th {
+      padding: 6px 8px;
+      background: #f4edf5;
+      color: #62406a;
+      font-size: 10px;
+      text-align: left;
+    }
+
+    .reason-row td {
+      height: 37px;
+      padding: 5px 8px;
+    }
+
+    .reason-lines {
+      height: 26px;
+      background: repeating-linear-gradient(to bottom, transparent 0, transparent 20px, #e0d7e2 21px);
+    }
+
+    .final-check {
+      display: grid;
+      grid-template-columns: 1.1fr repeat(4, auto);
+      gap: 10px 18px;
+      align-items: center;
+      margin-top: 10px;
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      font-size: 10px;
+    }
+
+    .final-check strong { color: var(--accent); font-size: 11px; }
+
+    footer {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 9px;
+      text-align: right;
+    }
+
+    @media (max-width: 760px) {
+      .sheet { padding: 28px 18px; }
+      header { grid-template-columns: 1fr; gap: 12px; }
+      .meta, .steps, .final-check { grid-template-columns: 1fr; }
+      .table-wrap { margin-right: -18px; padding-right: 18px; }
+    }
+
+    @page { size: A4 landscape; margin: 9mm; }
+
+    @media print {
+      html, body { background: #fff; }
+      .toolbar, .print-button { display: none !important; }
+      .sheet {
+        width: auto;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+      }
+      .table-wrap { overflow: visible; }
+      table { min-width: 0; }
+      thead th, .steps li, .principle, .reason-row th { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .main-row, .reason-row, .final-check { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="print-button" type="button" onclick="window.print()">인쇄하기</button>
+  </div>
+
+  <main class="sheet">
+    <header>
+      <div>
+        <p class="eyebrow">교사용 AI 활용 안전장치</p>
+        <h1>AI 피드백 교사 검토표</h1>
+        <p class="subtitle">AI의 제안을 루브릭과 실제 증거에 비추어 검토한 뒤, 교사가 최종 피드백을 결정합니다.</p>
+      </div>
+      <p class="principle"><strong>입력 전 개인정보 확인</strong>학생 이름·학번·연락처·사진·계정 정보와 그 밖의 식별 단서는 AI에 입력하거나 이 검토표에 옮기지 않습니다. 필요한 경우 식별정보를 제거한 작업물 일부만 사용하세요.</p>
+    </header>
+
+    <section class="meta" aria-label="검토 기본 정보">
+      <div class="field"><strong>과제 / 활동</strong><span></span></div>
+      <div class="field"><strong>익명 작업물 코드</strong><span></span></div>
+      <div class="field"><strong>검토 기준일</strong><span></span></div>
+    </section>
+
+    <ol class="steps" aria-label="검토 순서">
+      <li>식별정보가 모두 제거되었는지 확인합니다.</li>
+      <li>AI 제안을 루브릭 기준과 작업물 증거에 대조합니다.</li>
+      <li>반영·부분 반영·반영하지 않음을 판단합니다.</li>
+      <li>판단 근거를 남기고 교사가 최종 문장을 검토합니다.</li>
+    </ol>
+
+    <div class="table-wrap">
+      <table aria-label="AI 피드백 검토 기록">
+        <thead>
+          <tr>
+            <th scope="col">번호</th>
+            <th scope="col">AI 피드백 요약<br>식별정보를 제거한 핵심 제안만 기록</th>
+            <th scope="col">교사 판단</th>
+            <th scope="col">교사가 전달할 피드백 / 수정 문장</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="main-row">
+            <th scope="row">1</th>
+            <td><div class="ruled"></div></td>
+            <td><div class="choices"><span><i class="box"></i>반영</span><span><i class="box"></i>부분 반영</span><span><i class="box"></i>반영하지 않음</span></div></td>
+            <td><div class="ruled"></div></td>
+          </tr>
+          <tr class="reason-row">
+            <th colspan="2" scope="row">판단 근거 · 루브릭 기준, 작업물에서 확인한 증거, 맥락 또는 오류</th>
+            <td colspan="2"><div class="reason-lines"></div></td>
+          </tr>
+
+          <tr class="main-row">
+            <th scope="row">2</th>
+            <td><div class="ruled"></div></td>
+            <td><div class="choices"><span><i class="box"></i>반영</span><span><i class="box"></i>부분 반영</span><span><i class="box"></i>반영하지 않음</span></div></td>
+            <td><div class="ruled"></div></td>
+          </tr>
+          <tr class="reason-row">
+            <th colspan="2" scope="row">판단 근거 · 루브릭 기준, 작업물에서 확인한 증거, 맥락 또는 오류</th>
+            <td colspan="2"><div class="reason-lines"></div></td>
+          </tr>
+
+          <tr class="main-row">
+            <th scope="row">3</th>
+            <td><div class="ruled"></div></td>
+            <td><div class="choices"><span><i class="box"></i>반영</span><span><i class="box"></i>부분 반영</span><span><i class="box"></i>반영하지 않음</span></div></td>
+            <td><div class="ruled"></div></td>
+          </tr>
+          <tr class="reason-row">
+            <th colspan="2" scope="row">판단 근거 · 루브릭 기준, 작업물에서 확인한 증거, 맥락 또는 오류</th>
+            <td colspan="2"><div class="reason-lines"></div></td>
+          </tr>
+
+          <tr class="main-row">
+            <th scope="row">4</th>
+            <td><div class="ruled"></div></td>
+            <td><div class="choices"><span><i class="box"></i>반영</span><span><i class="box"></i>부분 반영</span><span><i class="box"></i>반영하지 않음</span></div></td>
+            <td><div class="ruled"></div></td>
+          </tr>
+          <tr class="reason-row">
+            <th colspan="2" scope="row">판단 근거 · 루브릭 기준, 작업물에서 확인한 증거, 맥락 또는 오류</th>
+            <td colspan="2"><div class="reason-lines"></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <section class="final-check" aria-label="최종 검토 확인">
+      <strong>최종 전달 전 교사 확인</strong>
+      <span><i class="box"></i>근거와 일치함</span>
+      <span><i class="box"></i>학생이 이해할 표현임</span>
+      <span><i class="box"></i>다음 행동이 구체적임</span>
+      <span><i class="box"></i>개인정보가 없음</span>
+    </section>
+
+    <footer>AI는 제안 도구이며 평가와 피드백의 최종 책임은 교사에게 있습니다.</footer>
+  </main>
+</body>
+</html>

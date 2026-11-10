@@ -17,17 +17,45 @@ import {
   type SavedEvaluation,
   type TeacherId,
 } from "@/lib/teacher-evaluations";
+import {
+  normalizeEvaluationSessionConfig,
+  type EvaluationSessionConfig,
+} from "@/lib/evaluation-session";
+import {
+  normalizePeerEvaluationConfig,
+  type PeerEvaluationConfig,
+} from "@/lib/peer-evaluation";
 
-type StoredEvaluation = {
+type StoredAiEvaluation = {
   id: string;
   teacherId: TeacherId;
-  type: EvaluationType;
+  type: "pdf" | "docs";
   config: Omit<ClassConfig, "apiKey" | "apiKeys">;
   encryptedApiKey?: string;
   encryptedApiKeys?: Partial<ProviderApiKeys>;
   createdAt: string;
   updatedAt: string;
 };
+
+type StoredPeerEvaluation = {
+  id: string;
+  teacherId: TeacherId;
+  type: "peer";
+  config: PeerEvaluationConfig;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type StoredSessionEvaluation = {
+  id: string;
+  teacherId: TeacherId;
+  type: "session";
+  config: EvaluationSessionConfig;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type StoredEvaluation = StoredAiEvaluation | StoredPeerEvaluation | StoredSessionEvaluation;
 
 type StoredTeacherApiKeys = {
   encryptedApiKeys?: Partial<ProviderApiKeys>;
@@ -60,7 +88,7 @@ function decryptApiKey(payload: string) {
   ]).toString("utf8");
 }
 
-function decryptProviderApiKeys(evaluation: StoredEvaluation): ProviderApiKeys {
+function decryptProviderApiKeys(evaluation: StoredAiEvaluation): ProviderApiKeys {
   return {
     openai: evaluation.encryptedApiKeys?.openai
       ? decryptApiKey(evaluation.encryptedApiKeys.openai)
@@ -137,6 +165,32 @@ function decryptTeacherApiKeys(stored: StoredTeacherApiKeys): ProviderApiKeys {
 }
 
 function toPublicEvaluation(evaluation: StoredEvaluation): SavedEvaluation {
+  if (evaluation.type === "session") {
+    return {
+      id: evaluation.id,
+      teacherId: evaluation.teacherId,
+      type: "session",
+      config: evaluation.config,
+      hasApiKey: false,
+      hasApiKeys: { openai: false, anthropic: false },
+      createdAt: evaluation.createdAt,
+      updatedAt: evaluation.updatedAt,
+    };
+  }
+
+  if (evaluation.type === "peer") {
+    return {
+      id: evaluation.id,
+      teacherId: evaluation.teacherId,
+      type: "peer",
+      config: evaluation.config,
+      hasApiKey: false,
+      hasApiKeys: { openai: false, anthropic: false },
+      createdAt: evaluation.createdAt,
+      updatedAt: evaluation.updatedAt,
+    };
+  }
+
   return {
     id: evaluation.id,
     teacherId: evaluation.teacherId,
@@ -171,7 +225,7 @@ export async function listTeacherEvaluations(teacherId: TeacherId) {
 export async function saveTeacherEvaluation(input: {
   teacherId: TeacherId;
   type: EvaluationType;
-  config: ClassConfig;
+  config: ClassConfig | PeerEvaluationConfig | EvaluationSessionConfig;
   evaluationId?: string;
 }) {
   const evaluations = await readStoredEvaluations(input.teacherId);
@@ -179,29 +233,77 @@ export async function saveTeacherEvaluation(input: {
     ? evaluations.find(({ id }) => id === input.evaluationId)
     : undefined;
   const now = new Date().toISOString();
-  const provider = providerFromModel(input.config.model, input.config.provider);
-  const apiKeys = normalizeProviderApiKeys(input.config);
-  const existingApiKeys = existing ? decryptProviderApiKeys(existing) : { openai: "", anthropic: "" };
+  const id = existing?.id ?? crypto.randomUUID();
+
+  if (input.type === "session") {
+    const config = normalizeEvaluationSessionConfig(input.config as Partial<EvaluationSessionConfig>);
+    const saved: StoredSessionEvaluation = {
+      id,
+      teacherId: input.teacherId,
+      type: "session",
+      config: {
+        ...config,
+        teacherId: input.teacherId,
+        evaluationId: id,
+      },
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+    await writeStoredEvaluations(
+      input.teacherId,
+      [saved, ...evaluations.filter((evaluation) => evaluation.id !== saved.id)],
+    );
+    return toPublicEvaluation(saved);
+  }
+
+  if (input.type === "peer") {
+    const config = normalizePeerEvaluationConfig(input.config as Partial<PeerEvaluationConfig>);
+    const saved: StoredPeerEvaluation = {
+      id,
+      teacherId: input.teacherId,
+      type: "peer",
+      config: {
+        ...config,
+        teacherId: input.teacherId,
+        evaluationId: id,
+      },
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+    await writeStoredEvaluations(
+      input.teacherId,
+      [saved, ...evaluations.filter((evaluation) => evaluation.id !== saved.id)],
+    );
+    return toPublicEvaluation(saved);
+  }
+
+  const config = input.config as ClassConfig;
+  const provider = providerFromModel(config.model, config.provider);
+  const apiKeys = normalizeProviderApiKeys(config);
+  const existingApiKeys = existing && existing.type !== "peer"
+    && existing.type !== "session"
+    ? decryptProviderApiKeys(existing)
+    : { openai: "", anthropic: "" };
   const savedApiKeys: ProviderApiKeys = {
     openai: apiKeys.openai || existingApiKeys.openai,
     anthropic: apiKeys.anthropic || existingApiKeys.anthropic,
   };
-  const saved: StoredEvaluation = {
-    id: existing?.id ?? crypto.randomUUID(),
+  const saved: StoredAiEvaluation = {
+    id,
     teacherId: input.teacherId,
     type: input.type,
     config: {
       provider,
-      model: input.config.model.trim() || defaultModelForProvider(provider),
-      classTitle: input.config.classTitle.trim(),
-      assignment: input.config.assignment.trim(),
-      rubric: input.config.rubric.trim(),
-      instruction: input.config.instruction.trim(),
+      model: config.model.trim() || defaultModelForProvider(provider),
+      classTitle: config.classTitle.trim(),
+      assignment: config.assignment.trim(),
+      rubric: config.rubric.trim(),
+      instruction: config.instruction.trim(),
       teacherId: input.teacherId,
       outputOptions: {
-        ...normalizeOutputOptions(input.config.outputOptions),
+        ...normalizeOutputOptions(config.outputOptions),
         appendToGoogleDoc: input.type === "docs"
-          && input.config.outputOptions?.appendToGoogleDoc === true,
+          && config.outputOptions?.appendToGoogleDoc === true,
       },
     },
     encryptedApiKeys: {
@@ -235,7 +337,9 @@ export async function getStoredApiKeys(teacherIdValue: string, evaluationId: str
   }
   const evaluations = await readStoredEvaluations(teacherIdValue);
   const evaluation = evaluations.find(({ id }) => id === evaluationId);
-  return evaluation ? decryptProviderApiKeys(evaluation) : { openai: "", anthropic: "" };
+  return evaluation && evaluation.type !== "peer" && evaluation.type !== "session"
+    ? decryptProviderApiKeys(evaluation)
+    : { openai: "", anthropic: "" };
 }
 
 export async function getTeacherApiKeys(teacherIdValue: string) {

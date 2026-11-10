@@ -4,6 +4,7 @@ import {
   createGoogleOAuthUrl,
   isGoogleOAuthConfigured,
 } from "@/lib/server/google-oauth";
+import { isTeacherSessionFor } from "@/lib/server/teacher-accounts";
 
 export const runtime = "nodejs";
 
@@ -11,7 +12,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const teacherId = url.searchParams.get("teacher") ?? "";
   const returnTo = url.searchParams.get("returnTo") || `/docs/teacher?teacher=${teacherId}`;
-  if (!isTeacherId(teacherId)) {
+  if (!isTeacherId(teacherId) || !await isTeacherSessionFor(teacherId)) {
     return NextResponse.redirect(new URL("/?oauth=invalid-teacher", url.origin));
   }
   if (!isGoogleOAuthConfigured()) {

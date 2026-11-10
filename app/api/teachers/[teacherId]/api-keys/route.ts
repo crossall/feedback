@@ -4,11 +4,12 @@ import {
   getTeacherApiKeyStatus,
   saveTeacherApiKeys,
 } from "@/lib/server/teacher-store";
+import { isTeacherSessionFor } from "@/lib/server/teacher-accounts";
 
 export const runtime = "nodejs";
 
 function invalidTeacher() {
-  return NextResponse.json({ error: "등록되지 않은 교사 ID입니다." }, { status: 404 });
+  return NextResponse.json({ error: "로그인 정보가 일치하지 않습니다." }, { status: 401 });
 }
 
 export async function GET(
@@ -17,7 +18,7 @@ export async function GET(
 ) {
   try {
     const { teacherId } = await params;
-    if (!isTeacherId(teacherId)) return invalidTeacher();
+    if (!isTeacherId(teacherId) || !await isTeacherSessionFor(teacherId)) return invalidTeacher();
     return NextResponse.json({
       hasApiKeys: await getTeacherApiKeyStatus(teacherId),
     });
@@ -36,7 +37,7 @@ export async function POST(
 ) {
   try {
     const { teacherId } = await params;
-    if (!isTeacherId(teacherId)) return invalidTeacher();
+    if (!isTeacherId(teacherId) || !await isTeacherSessionFor(teacherId)) return invalidTeacher();
     const body = await request.json() as {
       openai?: string;
       anthropic?: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import {
   deleteEvaluation,
@@ -10,8 +11,11 @@ import {
   type SavedEvaluation,
   type TeacherId,
 } from "@/lib/teacher-evaluations";
+import { bundledEvaluationVisible } from "@/lib/feature-flags";
+import ProjectCopyLibrary from "./project-copy-library";
 
 export default function TeacherDashboard({ teacherId }: { teacherId: TeacherId }) {
+  const router = useRouter();
   const [evaluations, setEvaluations] = useState<SavedEvaluation[]>([]);
   const [apiKeys, setApiKeys] = useState({ openai: "", anthropic: "" });
   const [hasApiKeys, setHasApiKeys] = useState({ openai: false, anthropic: false });
@@ -19,6 +23,9 @@ export default function TeacherDashboard({ teacherId }: { teacherId: TeacherId }
   const [error, setError] = useState("");
   const [keyMessage, setKeyMessage] = useState("");
   const [keySaving, setKeySaving] = useState(false);
+  const visibleEvaluations = bundledEvaluationVisible
+    ? evaluations
+    : evaluations.filter((evaluation) => evaluation.type !== "session");
 
   useEffect(() => {
     queueMicrotask(async () => {
@@ -65,6 +72,12 @@ export default function TeacherDashboard({ teacherId }: { teacherId: TeacherId }
     }
   }
 
+  async function logout() {
+    await fetch("/api/teachers/auth", { method: "DELETE" });
+    router.push("/");
+    router.refresh();
+  }
+
   return (
     <main className="dashboard-page">
       <header className="site-header">
@@ -76,7 +89,7 @@ export default function TeacherDashboard({ teacherId }: { teacherId: TeacherId }
         <div className="dashboard-identity">
           <span>TEACHER</span>
           <strong>{teacherId}</strong>
-          <Link href="/">나가기</Link>
+          <button type="button" onClick={logout}>나가기</button>
         </div>
       </header>
 
@@ -85,10 +98,10 @@ export default function TeacherDashboard({ teacherId }: { teacherId: TeacherId }
           <div>
             <div className="eyebrow"><span /> MY FEEDBACK LIBRARY</div>
             <h1>선생님의<br /><em>평가 보관함</em></h1>
-            <p>새 평가를 만들거나 저장해 둔 평가를 열어 학생용 링크를 다시 만들 수 있어요.</p>
+            <p>평가 기준을 만들고 저장해 둔 평가를 열어 학생 작품을 직접 평가할 수 있어요.</p>
           </div>
           <div className="dashboard-stat">
-            <strong>{evaluations.length}</strong>
+            <strong>{visibleEvaluations.length}</strong>
             <span>저장된 평가</span>
           </div>
         </div>
@@ -128,16 +141,18 @@ export default function TeacherDashboard({ teacherId }: { teacherId: TeacherId }
           {keyMessage && <div className="storage-message">{keyMessage}</div>}
         </section>
 
+        <ProjectCopyLibrary teacherId={teacherId} />
+
         <section className="create-section">
           <div className="section-heading">
-            <span>02</span>
-            <div><h2>새로 만들기</h2><p>학생이 제출할 문서 형식을 선택하세요.</p></div>
+            <span>03</span>
+            <div><h2>새로 만들기</h2><p>교사가 직접 평가할 작품 형식이나 동료평가를 선택하세요.</p></div>
           </div>
           {(!hasApiKeys.openai || !hasApiKeys.anthropic) && (
             <div className="key-warning">
-              <strong>API 키가 아직 모두 저장되지 않았어요.</strong>
+              <strong>AI 평가용 API 키가 아직 모두 저장되지 않았어요.</strong>
               <span>
-                GPT 모델은 OpenAI 키, Claude 모델은 Claude 키가 필요합니다.
+                PDF와 Google Docs 평가는 GPT 모델에 OpenAI 키, Claude 모델에 Claude 키가 필요합니다. 동료평가는 API 키 없이 만들 수 있어요.
               </span>
             </div>
           )}
@@ -152,34 +167,62 @@ export default function TeacherDashboard({ teacherId }: { teacherId: TeacherId }
               <div><strong>Google Docs 평가 만들기</strong><p>공유 링크로 제출한 글과 문서를 평가해요.</p></div>
               <b>→</b>
             </Link>
+            <Link href={`/peer/teacher?teacher=${teacherId}`}>
+              <span className="type-icon peer">PEER</span>
+              <div><strong>동료평가 만들기</strong><p>점수와 짧은 글 질문으로 반 친구나 모둠을 평가해요.</p></div>
+              <b>→</b>
+            </Link>
+            {bundledEvaluationVisible && (
+              <Link href={`/session/teacher?teacher=${teacherId}`}>
+                <span className="type-icon session">SET</span>
+                <div><strong>묶음 평가 만들기</strong><p>여러 평가를 한 흐름으로 묶고 마지막에 통합 보고서를 봅니다.</p></div>
+                <b>&gt;</b>
+              </Link>
+            )}
           </div>
         </section>
 
         <section className="library-section">
           <div className="section-heading">
-            <span>03</span>
-            <div><h2>저장한 평가</h2><p>평가 기준을 열어 수정하거나 학생 링크를 다시 만드세요.</p></div>
+            <span>04</span>
+            <div><h2>저장한 평가</h2><p>평가 기준을 열어 수정하거나 학생 작품 평가를 이어가세요.</p></div>
           </div>
           {error && <div className="error-message">{error}</div>}
           {!ready ? (
             <div className="empty-library">평가 보관함을 불러오는 중...</div>
-          ) : evaluations.length === 0 ? (
+          ) : visibleEvaluations.length === 0 ? (
             <div className="empty-library">
               <strong>아직 저장한 평가가 없어요.</strong>
               <p>위의 새로 만들기에서 첫 평가를 만들어 보세요.</p>
             </div>
           ) : (
             <div className="evaluation-grid">
-              {evaluations.map((evaluation) => {
-                const editPath = evaluation.type === "pdf" ? "/teacher" : "/docs/teacher";
+              {visibleEvaluations.map((evaluation) => {
+                const editPath = evaluation.type === "pdf"
+                  ? "/teacher"
+                  : evaluation.type === "docs"
+                    ? "/docs/teacher"
+                    : evaluation.type === "peer"
+                      ? "/peer/teacher"
+                      : "/session/teacher";
+                const title = evaluation.type === "peer"
+                  ? evaluation.config.title
+                  : evaluation.type === "session"
+                    ? evaluation.config.title
+                    : evaluation.config.classTitle;
+                const description = evaluation.type === "peer"
+                  ? evaluation.config.description
+                  : evaluation.type === "session"
+                    ? evaluation.config.description
+                    : evaluation.config.assignment;
                 return (
                   <article key={evaluation.id} className="evaluation-card">
                     <div className="evaluation-meta">
-                      <span className={`format-chip ${evaluation.type}`}>{evaluation.type === "pdf" ? "PDF" : "DOCS"}</span>
+                      <span className={`format-chip ${evaluation.type}`}>{evaluation.type === "pdf" ? "PDF" : evaluation.type === "docs" ? "DOCS" : evaluation.type === "peer" ? "PEER" : "SESSION"}</span>
                       <time>{new Date(evaluation.updatedAt).toLocaleDateString("ko-KR")}</time>
                     </div>
-                    <h3>{evaluation.config.classTitle}</h3>
-                    <p>{evaluation.config.assignment}</p>
+                    <h3>{title}</h3>
+                    <p>{description}</p>
                     <div className="evaluation-actions">
                       <Link href={`${editPath}?teacher=${teacherId}&evaluation=${evaluation.id}`}>평가 열기</Link>
                       <button type="button" onClick={() => removeEvaluation(evaluation.id)}>삭제</button>

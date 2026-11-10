@@ -1,0 +1,53 @@
+name: system-quality-pipeline
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: system-quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify system and documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Restore Next.js build cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('app/**/*.[jt]s', 'app/**/*.[jt]sx', 'lib/**/*.[jt]s', 'lib/**/*.[jt]sx', 'proxy.ts', 'next.config.ts') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Verify system map and API inventory
+        run: npm run docs:system:check
+
+      - name: Lint application sources
+        run: npm run lint
+
+      - name: Check TypeScript types
+        run: npm run typecheck
+
+      - name: Build production application
+        run: npm run build

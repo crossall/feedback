@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "system": {
+    "name": "Feedforward",
+    "koreanName": "잎새 피드백",
+    "purpose": "교사가 세운 루브릭을 학생의 수행, 판단, 수정, 성찰과 다음 수업으로 연결하는 과정중심평가 플랫폼",
+    "runtime": "Next.js 16 App Router on Node.js serverless runtime",
+    "primaryStore": "Vercel Blob private JSON objects"
+  },
+  "roles": [
+    { "id": "teacher", "label": "교사", "responsibility": "평가기준 설계, 운영 단계 개방, AI 결과 검토, 최종 교육적 판단" },
+    { "id": "student", "label": "학생", "responsibility": "산출물 제출, 동료평가, AI 제안 판단, 수정, 자기평가" },
+    { "id": "junior", "label": "후배 평가자", "responsibility": "사전 확인, 발표 평가, 사후 확인을 통해 설명의 이해 가능성 검증" },
+    { "id": "operator", "label": "운영자", "responsibility": "배포, 비밀정보, 저장소, 개인정보 요청과 장애 대응" }
+  ],
+  "capabilities": [
+    {
+      "id": "general-ai",
+      "label": "일반 AI 평가",
+      "entry": ["/", "/docs", "/teacher", "/docs/teacher"],
+      "apis": ["/api/class", "/api/evaluate", "/api/evaluate-doc", "/api/teacher/evaluation-token"],
+      "outcomes": ["구조화된 루브릭 평가", "화면 피드백", "PDF 또는 HTML 보고서", "Google Docs 덧붙이기"]
+    },
+    {
+      "id": "peer-self",
+      "label": "동료평가와 자기평가",
+      "entry": ["/peer", "/peer/teacher", "/self"],
+      "apis": ["/api/peer/class", "/api/peer/responses", "/api/self/class", "/api/self/responses", "/api/ai/generate-questions"],
+      "outcomes": ["루브릭 응답", "정성 의견", "교사 집계 화면"]
+    },
+    {
+      "id": "session",
+      "label": "단계형 통합 평가 세션",
+      "entry": ["/session", "/session/teacher"],
+      "apis": ["/api/session/class", "/api/session/evaluate", "/api/session/responses", "/api/session/student-results"],
+      "outcomes": ["PDF 또는 Docs AI 평가", "동료평가", "자기평가", "성찰", "조건부 학생 결과 공유"]
+    },
+    {
+      "id": "project4",
+      "label": "계절의 비밀 프로젝트",
+      "entry": ["/project4"],
+      "apis": ["/api/project4/storage", "/api/project4/claude"],
+      "outcomes": ["8단계 학습 흐름", "모둠과 개인 성장 데이터", "후배 평가", "성장 보고서"]
+    },
+    {
+      "id": "project-workspaces",
+      "label": "프로젝트별 평가 워크스페이스",
+      "entry": ["/project1", "/project_expo", "/meta1", "/confesta"],
+      "apis": ["/api/project1/storage", "/api/project1/claude", "/api/project_expo/storage", "/api/meta1/storage", "/api/meta1/claude", "/api/confesta/storage", "/api/confesta/claude"],
+      "outcomes": ["프로젝트별 루브릭", "AI 피드백", "공유 저장공간"]
+    },
+    {
+      "id": "showcase",
+      "label": "성과 전시와 방명록",
+      "entry": ["/showcase", "/showcase/projects/[slug]"],
+      "apis": ["/api/showcase/guestbook", "/api/showcase/guestbook/admin"],
+      "outcomes": ["프로젝트 전시", "질문과 방명록", "관리자 검토와 답변"]
+    }
+  ],
+  "commonPipeline": [
+    { "id": "design", "number": 1, "label": "기준 설계", "detail": "교사가 과제, 루브릭, 질문, 모델, 결과 제공 방식을 정한다", "owner": "교사" },
+    { "id": "normalize", "number": 2, "label": "검증과 정규화", "detail": "서버가 필수값, 배점, 단계, 출력 옵션을 검증하고 표준 구조로 바꾼다", "owner": "서버" },
+    { "id": "authorize", "number": 3, "label": "접근권한 발급", "detail": "암호화된 수업 토큰 또는 역할별 서명 토큰으로 공개 링크의 범위를 제한한다", "owner": "서버" },
+    { "id": "collect", "number": 4, "label": "수행과 응답 수집", "detail": "PDF, Google Docs, 동료평가, 자기평가, 성찰, 단계별 판단을 입력받는다", "owner": "교사와 학생" },
+    { "id": "evaluate", "number": 5, "label": "분석과 평가", "detail": "정형 평가는 규칙으로 집계하고 산출물 평가는 선택한 AI 제공자에게 구조화 응답을 요청한다", "owner": "서버와 AI" },
+    { "id": "judge", "number": 6, "label": "사람의 판단", "detail": "교사와 학생이 근거를 확인하고 AI 제안의 수용, 수정, 거절을 결정한다", "owner": "교사와 학생" },
+    { "id": "deliver", "number": 7, "label": "결과 전달", "detail": "화면, 보고서, Google Docs, 교사 대시보드에서 역할에 맞는 결과를 제공한다", "owner": "서버" },
+    { "id": "improve", "number": 8, "label": "수정과 다음 수업", "detail": "다음 행동, 최종본, 성찰, 성장 보고서를 다음 학습과 수업 설계에 연결한다", "owner": "교사와 학생" }
+  ],
+  "project4Stages": [
+    "모둠 내 동료평가",
+    "내가 받은 평가 확인",
+    "대표 작품 선정",
+    "다른 모둠 발표 평가",
+    "AI 피드백 판단",
+    "최종 대본 제출",
+    "후배 평가",
+    "결과 확인과 자기평가"
+  ],
+  "externalSystems": [
+    { "id": "openai", "label": "OpenAI Responses API", "data": "루브릭, 과제, 프롬프트, PDF 또는 문서 본문, 현재 구현에서는 제출자 정보" },
+    { "id": "anthropic", "label": "Anthropic Messages API", "data": "루브릭, 과제, 프롬프트, PDF 또는 문서 본문, 프로젝트별 평가 입력" },
+    { "id": "google", "label": "Google Docs API and OAuth", "data": "공개 문서 읽기 또는 교사 소유 문서에 피드백 추가, OAuth 토큰" },
+    { "id": "vercel", "label": "Vercel Runtime and Blob", "data": "평가 설정, 암호화된 API 키, 응답, 프로젝트 기록, 방명록" }
+  ],
+  "securityControls": [
+    "수업 설정과 범용 평가 링크는 AES 256 GCM으로 암호화한다",
+    "프로젝트 4 역할 토큰은 HMAC SHA 256으로 서명하고 8시간 뒤 만료한다",
+    "교사 API 키와 Google OAuth 토큰은 암호화한 뒤 비공개 Blob에 저장한다",
+    "방명록 변경 요청은 동일 출처, 크기 제한, 속도 제한, 관리자 쿠키를 확인한다",
+    "Route Handler는 입력 형식과 파일 크기를 검사하고 오류 응답에서 비밀정보를 제외한다"
+  ],
+  "featureFlags": [
+    { "name": "studentSubmissionLinksEnabled", "value": false, "effect": "일반 PDF와 Docs는 교사 직접 평가 방식만 허용" },
+    { "name": "internalPeerCollectionEnabled", "value": false, "effect": "기본 동료평가는 Google Form 운영 안내를 사용" },
+    { "name": "bundledEvaluationVisible", "value": false, "effect": "통합 평가 기능의 기본 노출을 제한" }
+  ],
+  "qualityGates": [
+    "시스템 지도와 실제 Route Handler 목록의 일치",
+    "애플리케이션 소스 ESLint 검사",
+    "TypeScript 정적 타입 검사",
+    "Next.js 프로덕션 빌드",
+    "문서의 개인정보 설명과 실제 외부 전송 필드 대조",
+    "토큰 만료, 역할 경계, 파일 크기, 오류 메시지 검토"
+  ],
+  "knownGaps": [
+    {
+      "id": "identity-to-ai",
+      "severity": "critical",
+      "summary": "일반 PDF와 Google Docs 평가 프롬프트에 학생 이름과 학급 정보가 포함되지만 개인정보 처리방침은 직접 식별정보를 AI에 전송하지 않는다고 설명한다",
+      "decision": "외부 AI 요청 전에 이름, 학년, 반, 모둠을 제거하거나 가명으로 치환하고 정책 문구와 구현을 함께 검증한다"
+    },
+    {
+      "id": "provider-path",
+      "severity": "high",
+      "summary": "개인정보 처리방침은 Vercel AI Gateway 중계를 설명하지만 핵심 평가 코드는 OpenAI와 Anthropic API를 직접 호출한다",
+      "decision": "실제 네트워크 경로에 맞게 정책을 수정하거나 호출을 승인된 게이트웨이로 통일한다"
+    },
+    {
+      "id": "teacher-auth",
+      "severity": "high",
+      "summary": "교사 보관함은 허용된 숫자 ID만 검사하며 강한 사용자 인증과 세션 권한 검증이 없다",
+      "decision": "교사 계정 인증, 서버 세션, 평가 소유권 검사를 Route Handler마다 적용한다"
+    },
+    {
+      "id": "retention-automation",
+      "severity": "high",
+      "summary": "정책은 프로젝트 종료 후 자동 삭제 기본값을 설명하지만 코드에는 공통 보유기간과 자동 파기 작업이 확인되지 않는다",
+      "decision": "데이터 종류별 expiresAt, 삭제 작업, 삭제 확인 기록을 구현한다"
+    },
+    {
+      "id": "duplicated-workspaces",
+      "severity": "medium",
+      "summary": "프로젝트 1, Meta1, Confesta, Project Expo가 유사한 저장과 Claude 프록시 코드를 반복한다",
+      "decision": "공통 저장 어댑터, 인증, AI 클라이언트, 입력 검증을 공유 모듈로 통합한다"
+    },
+    {
+      "id": "automated-tests",
+      "severity": "medium",
+      "summary": "현재 package scripts에 자동 테스트 명령이 없고 브라우저 흐름 검증은 개별 도구 스크립트에 흩어져 있다",
+      "decision": "토큰, 정규화, 저장 충돌, 핵심 사용자 흐름을 단위 및 E2E 테스트로 승격한다"
+    }
+  ]
+}

@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Feedforward 공통 평가 파이프라인</title>
+  <desc id="desc">교사가 기준을 설계하고 서버가 검증과 권한 발급을 거쳐 수행을 수집한 뒤 분석, 사람의 판단, 결과 전달, 수정과 다음 수업으로 연결하는 여덟 단계 흐름</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F8F4EA"/><stop offset="1" stop-color="#EEF4EF"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#17352B" flood-opacity=".10"/></filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#789184"/></marker>
+    <style>
+      text{font-family:"NanumGothic","Malgun Gothic",sans-serif}.eyebrow{font-size:17px;font-weight:700;letter-spacing:2px;fill:#2D7254}.title{font-size:51px;font-weight:700;fill:#17352B}.subtitle{font-size:23px;fill:#5D6B63}.cardTitle{font-size:27px;font-weight:700;fill:#17352B}.body{font-size:18px;fill:#4E5E55}.owner{font-size:16px;font-weight:700;fill:#5D6B63}.step{font-size:22px;font-weight:700;fill:white}.arrow{fill:none;stroke:#789184;stroke-width:4;stroke-linecap:round;marker-end:url(#arrow)}.loop{font-size:17px;font-weight:700;fill:#2D7254}
+    </style>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <circle cx="1820" cy="85" r="220" fill="#DCE9A6" opacity=".2"/><circle cx="60" cy="1020" r="180" fill="#DFF1F0" opacity=".45"/>
+  <text x="72" y="68" class="eyebrow">FEEDFORWARD SYSTEM PIPELINE</text>
+  <text x="72" y="132" class="title">기준에서 다음 행동까지 이어지는 평가 파이프라인</text>
+  <text x="72" y="178" class="subtitle">AI 분석은 가운데 단계이며, 시작과 끝의 책임은 교사와 학생에게 있습니다</text>
+  <path d="M472 375 H517" class="arrow"/>
+<path d="M927 375 H972" class="arrow"/>
+<path d="M1382 375 H1427" class="arrow"/>
+  <path d="M1817 505 C1880 505 1880 615 1817 615" class="arrow"/>
+  <path d="M1427 745 H1382" class="arrow"/>
+<path d="M972 745 H927" class="arrow"/>
+<path d="M517 745 H472" class="arrow"/>
+  <g filter="url(#shadow)">
+      <rect x="72" y="245" width="390" height="260" rx="26" fill="#FFFDF8" stroke="#CBD5CE"/>
+      <path d="M98 245 H436 Q462 245 462 271 V287 H72 V271 Q72 245 98 245Z" fill="#E4F1EA"/>
+    </g>
+    <circle cx="120" cy="317" r="28" fill="#2D7254"/>
+    <text x="120" y="325" class="step" text-anchor="middle">1</text>
+    <text x="162" y="325" class="cardTitle">기준 설계</text>
+    <text x="106" y="377" class="body" text-anchor="start">교사가 과제, 루브릭, 질문, 모델, 결과</text>
+<text x="106" y="405" class="body" text-anchor="start">제공 방식을 정한다</text>
+    <text x="106" y="471" class="owner">책임  교사</text>
+<g filter="url(#shadow)">
+      <rect x="527" y="245" width="390" height="260" rx="26" fill="#FFFDF8" stroke="#CBD5CE"/>
+      <path d="M553 245 H891 Q917 245 917 271 V287 H527 V271 Q527 245 553 245Z" fill="#E1F1F0"/>
+    </g>
+    <circle cx="575" cy="317" r="28" fill="#287C7A"/>
+    <text x="575" y="325" class="step" text-anchor="middle">2</text>
+    <text x="617" y="325" class="cardTitle">검증과 정규화</text>
+    <text x="561" y="377" class="body" text-anchor="start">서버가 필수값, 배점, 단계, 출력 옵션을</text>
+<text x="561" y="405" class="body" text-anchor="start">검증하고 표준 구조로 바꾼다</text>
+    <text x="561" y="471" class="owner">책임  서버</text>
+<g filter="url(#shadow)">
+      <rect x="982" y="245" width="390" height="260" rx="26" fill="#FFFDF8" stroke="#CBD5CE"/>
+      <path d="M1008 245 H1346 Q1372 245 1372 271 V287 H982 V271 Q982 245 1008 245Z" fill="#E8F0F7"/>
+    </g>
+    <circle cx="1030" cy="317" r="28" fill="#315F83"/>
+    <text x="1030" y="325" class="step" text-anchor="middle">3</text>
+    <text x="1072" y="325" class="cardTitle">접근권한 발급</text>
+    <text x="1016" y="377" class="body" text-anchor="start">암호화된 수업 토큰 또는 역할별 서명</text>
+<text x="1016" y="405" class="body" text-anchor="start">토큰으로 공개 링크의 범위를 제한한다</text>
+    <text x="1016" y="471" class="owner">책임  서버</text>
+<g filter="url(#shadow)">
+      <rect x="1437" y="245" width="390" height="260" rx="26" fill="#FFFDF8" stroke="#CBD5CE"/>
+      <path d="M1463 245 H1801 Q1827 245 1827 271 V287 H1437 V271 Q1437 245 1463 245Z" fill="#FBEADA"/>
+    </g>
+    <circle cx="1485" cy="317" r="28" fill="#C86B2A"/>
+    <text x="1485" y="325" class="step" text-anchor="middle">4</text>
+    <text x="1527" y="325" class="cardTitle">수행과 응답 수집</text>
+    <text x="1471" y="377" class="body" text-anchor="start">PDF, Google Docs, 동료평가,</text>
+<text x="1471" y="405" class="body" text-anchor="start">자기평가, 성찰, 단계별 판단을 입력받는다</text>
+    <text x="1471" y="471" class="owner">책임  교사와 학생</text>
+<g filter="url(#shadow)">
+      <rect x="1437" y="615" width="390" height="260" rx="26" fill="#FFFDF8" stroke="#CBD5CE"/>
+      <path d="M1463 615 H1801 Q1827 615 1827 641 V657 H1437 V641 Q1437 615 1463 615Z" fill="#ECEAF8"/>
+    </g>
+    <circle cx="1485" cy="687" r="28" fill="#655CB0"/>
+    <text x="1485" y="695" class="step" text-anchor="middle">5</text>
+    <text x="1527" y="695" class="cardTitle">분석과 평가</text>
+    <text x="1471" y="747" class="body" text-anchor="start">정형 평가는 규칙으로 집계하고 산출물 평가는</text>
+<text x="1471" y="775" class="body" text-anchor="start">선택한 AI 제공자에게 구조화 응답을</text>
+<text x="1471" y="803" class="body" text-anchor="start">요청한다</text>
+    <text x="1471" y="841" class="owner">책임  서버와 AI</text>
+<g filter="url(#shadow)">
+      <rect x="982" y="615" width="390" height="260" rx="26" fill="#FFFDF8" stroke="#CBD5CE"/>
+      <path d="M1008 615 H1346 Q1372 615 1372 641 V657 H982 V641 Q982 615 1008 615Z" fill="#F8E9E6"/>
+    </g>
+    <circle cx="1030" cy="687" r="28" fill="#A4473E"/>
+    <text x="1030" y="695" class="step" text-anchor="middle">6</text>
+    <text x="1072" y="695" class="cardTitle">사람의 판단</text>
+    <text x="1016" y="747" class="body" text-anchor="start">교사와 학생이 근거를 확인하고 AI 제안의</text>
+<text x="1016" y="775" class="body" text-anchor="start">수용, 수정, 거절을 결정한다</text>
+    <text x="1016" y="841" class="owner">책임  교사와 학생</text>
+<g filter="url(#shadow)">
+      <rect x="527" y="615" width="390" height="260" rx="26" fill="#FFFDF8" stroke="#CBD5CE"/>
+      <path d="M553 615 H891 Q917 615 917 641 V657 H527 V641 Q527 615 553 615Z" fill="#E8F0F7"/>
+    </g>
+    <circle cx="575" cy="687" r="28" fill="#315F83"/>
+    <text x="575" y="695" class="step" text-anchor="middle">7</text>
+    <text x="617" y="695" class="cardTitle">결과 전달</text>
+    <text x="561" y="747" class="body" text-anchor="start">화면, 보고서, Google Docs, 교사</text>
+<text x="561" y="775" class="body" text-anchor="start">대시보드에서 역할에 맞는 결과를 제공한다</text>
+    <text x="561" y="841" class="owner">책임  서버</text>
+<g filter="url(#shadow)">
+      <rect x="72" y="615" width="390" height="260" rx="26" fill="#FFFDF8" stroke="#CBD5CE"/>
+      <path d="M98 615 H436 Q462 615 462 641 V657 H72 V641 Q72 615 98 615Z" fill="#E4F1EA"/>
+    </g>
+    <circle cx="120" cy="687" r="28" fill="#2D7254"/>
+    <text x="120" y="695" class="step" text-anchor="middle">8</text>
+    <text x="162" y="695" class="cardTitle">수정과 다음 수업</text>
+    <text x="106" y="747" class="body" text-anchor="start">다음 행동, 최종본, 성찰, 성장 보고서를</text>
+<text x="106" y="775" class="body" text-anchor="start">다음 학습과 수업 설계에 연결한다</text>
+    <text x="106" y="841" class="owner">책임  교사와 학생</text>
+  <path d="M72 875 C72 1000 700 1010 960 1010 C1220 1010 1792 990 1792 875" fill="none" stroke="#2D7254" stroke-width="4" stroke-dasharray="10 11" marker-end="url(#arrow)"/>
+  <rect x="590" y="948" width="740" height="70" rx="35" fill="#FFFDF8" stroke="#BFD0C5"/>
+  <text x="960" y="990" class="loop" text-anchor="middle">결과를 다음 과제와 루브릭 설계에 되돌려 수업을 개선합니다</text>
+  <text x="1848" y="1050" class="owner" text-anchor="end">Source  docs/system/system-map.json</text>
+</svg>

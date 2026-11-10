@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GRASPS 수행 과제 설계 템플릿</title>
+  <style>
+    :root {
+      --ink: #17223b;
+      --muted: #5d6780;
+      --line: #cbd3df;
+      --soft: #f4f7fb;
+      --accent: #3157a4;
+      --accent-soft: #eaf0ff;
+      --paper: #ffffff;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { background: #e9edf3; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #e9edf3;
+      font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+      word-break: keep-all;
+    }
+
+    button { font: inherit; }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      justify-content: flex-end;
+      max-width: 210mm;
+      margin: 0 auto;
+      padding: 12px 16px;
+      background: rgba(233, 237, 243, .94);
+      backdrop-filter: blur(8px);
+    }
+
+    .print-button {
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--accent);
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(31, 54, 104, .22);
+    }
+
+    .sheet {
+      width: min(210mm, calc(100% - 24px));
+      min-height: 297mm;
+      margin: 0 auto 28px;
+      padding: 15mm 14mm;
+      background: var(--paper);
+      box-shadow: 0 12px 36px rgba(25, 36, 58, .13);
+    }
+
+    .eyebrow {
+      margin: 0 0 5px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .12em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(26px, 5vw, 38px);
+      line-height: 1.2;
+      letter-spacing: -.035em;
+    }
+
+    .lead {
+      margin: 9px 0 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .privacy-note {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin: 0 0 18px;
+      padding: 11px 13px;
+      border: 1px solid #b8c8ef;
+      border-radius: 10px;
+      background: var(--accent-soft);
+      font-size: 13px;
+    }
+
+    .privacy-note strong { color: #24468c; white-space: nowrap; }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .meta-field,
+    .section {
+      border: 1px solid var(--line);
+      border-radius: 11px;
+    }
+
+    .meta-field { padding: 9px 11px; }
+
+    .meta-field span {
+      display: block;
+      margin-bottom: 13px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .write-line { border-bottom: 1px solid #7e8aa0; }
+
+    .sections {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .section {
+      break-inside: avoid;
+      overflow: hidden;
+    }
+
+    .section.wide { grid-column: 1 / -1; }
+
+    .section-heading {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      background: var(--soft);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .letter {
+      display: grid;
+      flex: 0 0 30px;
+      width: 30px;
+      height: 30px;
+      place-items: center;
+      border-radius: 8px;
+      color: #fff;
+      background: var(--accent);
+      font-weight: 900;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.25;
+    }
+
+    h2 small {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .section-body { padding: 11px 12px 12px; }
+
+    .prompt {
+      margin: 0 0 7px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .ruled {
+      min-height: 88px;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 26px,
+        #d8dee8 27px
+      );
+    }
+
+    .wide .ruled { min-height: 76px; }
+
+    .checklist {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      break-inside: avoid;
+    }
+
+    .checklist h2 { margin-bottom: 8px; }
+
+    .checks {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 7px 16px;
+      color: #3d485f;
+      font-size: 12px;
+    }
+
+    .box {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      margin-right: 6px;
+      border: 1.5px solid #68758c;
+      border-radius: 3px;
+      vertical-align: -2px;
+    }
+
+    footer {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 10px;
+      text-align: right;
+    }
+
+    @media (max-width: 720px) {
+      .sheet { padding: 28px 20px; }
+      .meta-grid, .sections, .checks { grid-template-columns: 1fr; }
+      .section.wide { grid-column: auto; }
+      .privacy-note { display: block; }
+      .privacy-note strong { display: block; margin-bottom: 3px; }
+    }
+
+    @page { size: A4; margin: 11mm; }
+
+    @media print {
+      html, body { background: #fff; }
+      body { font-size: 11pt; }
+      .toolbar, .print-button { display: none !important; }
+      .sheet {
+        width: auto;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+      }
+      h1 { font-size: 25pt; }
+      .section, .checklist, .privacy-note { break-inside: avoid; }
+      .ruled { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="print-button" type="button" onclick="window.print()">인쇄하기</button>
+  </div>
+
+  <main class="sheet">
+    <header>
+      <p class="eyebrow">교사용 수업 설계 도구 · GRASPS</p>
+      <h1>수행 과제 설계 템플릿</h1>
+      <p class="lead">여섯 요소를 차례로 채우며 실제 맥락과 평가 기준이 연결된 수행 과제를 설계해 보세요.</p>
+    </header>
+
+    <aside class="privacy-note" aria-label="개인정보 보호 안내">
+      <strong>개인정보 보호</strong>
+      <span>학생 이름·학번·연락처 등 개인을 식별할 수 있는 정보는 적지 않습니다. 필요하면 익명 코드나 모둠 번호만 사용하세요.</span>
+    </aside>
+
+    <section class="meta-grid" aria-label="수업 기본 정보">
+      <div class="meta-field"><span>교과 / 영역</span><div class="write-line"></div></div>
+      <div class="meta-field"><span>학년 / 단원</span><div class="write-line"></div></div>
+      <div class="meta-field"><span>예상 소요 시간</span><div class="write-line"></div></div>
+    </section>
+
+    <div class="sections">
+      <section class="section">
+        <div class="section-heading">
+          <span class="letter">G</span>
+          <h2>목표 <small>Goal</small></h2>
+        </div>
+        <div class="section-body">
+          <p class="prompt">학생이 해결할 문제와 도달해야 할 학습 목표는 무엇인가요?</p>
+          <div class="ruled" aria-label="목표 작성란"></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-heading">
+          <span class="letter">R</span>
+          <h2>역할 <small>Role</small></h2>
+        </div>
+        <div class="section-body">
+          <p class="prompt">학생은 어떤 관점과 책임을 가진 역할을 수행하나요?</p>
+          <div class="ruled" aria-label="역할 작성란"></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-heading">
+          <span class="letter">A</span>
+          <h2>대상 <small>Audience</small></h2>
+        </div>
+        <div class="section-body">
+          <p class="prompt">결과물을 보고 사용하거나 반응할 실제·가상 대상은 누구인가요?</p>
+          <div class="ruled" aria-label="대상 작성란"></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-heading">
+          <span class="letter">S</span>
+          <h2>상황 <small>Situation</small></h2>
+        </div>
+        <div class="section-body">
+          <p class="prompt">과제가 필요한 맥락, 제약 조건, 해결해야 할 상황은 무엇인가요?</p>
+          <div class="ruled" aria-label="상황 작성란"></div>
+        </div>
+      </section>
+
+      <section class="section wide">
+        <div class="section-heading">
+          <span class="letter">P</span>
+          <h2>결과물·수행·목적 <small>Product, Performance &amp; Purpose</small></h2>
+        </div>
+        <div class="section-body">
+          <p class="prompt">학생은 무엇을 만들거나 수행하며, 그 결과물은 어떤 목적을 갖나요?</p>
+          <div class="ruled" aria-label="결과물과 수행 작성란"></div>
+        </div>
+      </section>
+
+      <section class="section wide">
+        <div class="section-heading">
+          <span class="letter">S</span>
+          <h2>성공 기준 <small>Standards &amp; Criteria for Success</small></h2>
+        </div>
+        <div class="section-body">
+          <p class="prompt">어떤 증거로 성취를 판단하나요? 핵심 루브릭 기준과 기대 수준을 적어 보세요.</p>
+          <div class="ruled" aria-label="성공 기준 작성란"></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="checklist" aria-label="설계 점검표">
+      <h2>설계 마무리 점검</h2>
+      <div class="checks">
+        <span><i class="box" aria-hidden="true"></i>학습 목표와 결과물이 직접 연결된다.</span>
+        <span><i class="box" aria-hidden="true"></i>학생이 선택하고 판단할 여지가 있다.</span>
+        <span><i class="box" aria-hidden="true"></i>대상과 상황이 과제의 필요성을 만든다.</span>
+        <span><i class="box" aria-hidden="true"></i>성공 기준이 관찰 가능한 증거로 표현된다.</span>
+      </div>
+    </section>
+
+    <footer>교사용 빈 양식 · 학생 개인정보를 기록하지 마세요.</footer>
+  </main>
+</body>
+</html>

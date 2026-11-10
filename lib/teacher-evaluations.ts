@@ -1,14 +1,14 @@
 import type { ClassConfig } from "./class-config";
+import type { EvaluationSessionConfig } from "./evaluation-session";
+import type { PeerEvaluationConfig } from "./peer-evaluation";
 
-export const teacherIds = ["4523", "6556", "7244"] as const;
+export type TeacherId = string;
+export type EvaluationType = "pdf" | "docs" | "peer" | "session";
 
-export type TeacherId = (typeof teacherIds)[number];
-export type EvaluationType = "pdf" | "docs";
-
-export type SavedEvaluation = {
+export type SavedAiEvaluation = {
   id: string;
   teacherId: TeacherId;
-  type: EvaluationType;
+  type: "pdf" | "docs";
   config: ClassConfig;
   hasApiKey: boolean;
   hasApiKeys?: {
@@ -19,8 +19,38 @@ export type SavedEvaluation = {
   updatedAt: string;
 };
 
+export type SavedPeerEvaluation = {
+  id: string;
+  teacherId: TeacherId;
+  type: "peer";
+  config: PeerEvaluationConfig;
+  hasApiKey: false;
+  hasApiKeys?: {
+    openai: false;
+    anthropic: false;
+  };
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SavedSessionEvaluation = {
+  id: string;
+  teacherId: TeacherId;
+  type: "session";
+  config: EvaluationSessionConfig;
+  hasApiKey: false;
+  hasApiKeys?: {
+    openai: false;
+    anthropic: false;
+  };
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SavedEvaluation = SavedAiEvaluation | SavedPeerEvaluation | SavedSessionEvaluation;
+
 export function isTeacherId(value: string): value is TeacherId {
-  return teacherIds.includes(value as TeacherId);
+  return /^\d{4}$/.test(value);
 }
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -47,7 +77,7 @@ export async function loadEvaluation(teacherId: TeacherId, evaluationId: string)
 export async function saveEvaluation(
   teacherId: TeacherId,
   type: EvaluationType,
-  config: ClassConfig,
+  config: ClassConfig | PeerEvaluationConfig | EvaluationSessionConfig,
   evaluationId?: string,
 ) {
   const response = await fetch(`/api/teachers/${teacherId}/evaluations`, {

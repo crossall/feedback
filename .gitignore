@@ -12,6 +12,9 @@
 
 # testing
 /coverage
+/tmp/
+/.tmp/
+/tmpproject4-guide-render/
 
 # next.js
 /.next/
@@ -23,6 +26,19 @@
 # misc
 .DS_Store
 *.pem
+__pycache__/
+*.py[cod]
+/.project4-*.log
+~$*
+
+# local generated and reference artifacts
+/artifacts/
+/backups/
+/output/
+/reference/
+/_workspace/
+/*.docx
+/*.pdf
 
 # debug
 npm-debug.log*

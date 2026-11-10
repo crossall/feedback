@@ -1,6 +1,8 @@
 import StudentApp from "./student-app";
 import TeacherLanding from "./teacher-landing";
 import { decryptClassConfig } from "@/lib/class-config";
+import StudentSubmissionNotice from "./student-submission-notice";
+import { studentSubmissionLinksEnabled } from "@/lib/feature-flags";
 
 export default async function Home({
   searchParams,
@@ -9,6 +11,9 @@ export default async function Home({
 }) {
   const params = await searchParams;
   if (params.class) {
+    if (!studentSubmissionLinksEnabled) {
+      return <StudentSubmissionNotice kind="pdf" />;
+    }
     let classInfo;
     try {
       const config = decryptClassConfig(params.class);

@@ -5,6 +5,9 @@ import { FormEvent, useEffect, useState } from "react";
 import { providerFromModel } from "@/lib/class-config";
 import { defaultGoogleDocsClassConfig } from "@/lib/google-docs-defaults";
 import EvaluationOutputOptionsField from "@/app/evaluation-output-options";
+import TeacherDirectEvaluator from "@/app/teacher-direct-evaluator";
+import TeacherPrivacyBanner from "@/app/teacher-privacy-banner";
+import { studentSubmissionLinksEnabled } from "@/lib/feature-flags";
 import {
   isTeacherId,
   loadEvaluation,
@@ -143,10 +146,31 @@ export default function GoogleDocsTeacherPage() {
     window.setTimeout(() => setCopied(false), 1800);
   }
 
+  async function prepareEvaluationToken() {
+    if (settings.outputOptions.appendToGoogleDoc && !googleAuth.connected) {
+      throw new Error(
+        googleAuth.configured
+          ? "Google Docs 쓰기 기능을 사용하려면 먼저 Google 계정을 연결해 주세요."
+          : "Google Docs 쓰기 기능을 사용하려면 플랫폼의 Google OAuth 앱 설정이 필요합니다.",
+      );
+    }
+    const saved = await persistSettings("평가 설정을 저장하고 교사용 평가를 준비했어요.");
+    const response = await fetch("/api/teacher/evaluation-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teacherId, evaluationId: saved.id, type: "docs" }),
+    });
+    const data = await response.json() as { token?: string; error?: string };
+    if (!response.ok || !data.token) {
+      throw new Error(data.error || "교사용 평가를 준비하지 못했습니다.");
+    }
+    return data.token;
+  }
+
   return (
     <main>
       <header className="site-header">
-        <Link className="brand" href="/docs">
+        <Link className="brand" href="/">
           <span className="brand-mark">葉</span>
           <span>잎새 피드백</span>
           <small>LEAFBACK</small>
@@ -154,29 +178,31 @@ export default function GoogleDocsTeacherPage() {
         <nav className="header-links">
           {teacherId && <Link className="teacher-link" href={`/teacher/${teacherId}`}>내 평가 보관함</Link>}
           <Link className="teacher-link" href={teacherId ? `/teacher?teacher=${teacherId}` : "/teacher"}>PDF 교사 설정</Link>
-          <Link className="teacher-link" href="/docs">학생 화면 보기</Link>
+          {studentSubmissionLinksEnabled && <Link className="teacher-link" href="/docs">학생 화면 보기</Link>}
         </nav>
       </header>
+
+      <TeacherPrivacyBanner kind="docs" />
 
       <section className="teacher-page">
         <div className="teacher-intro">
           <div className="eyebrow"><span /> DOCS TEACHER STUDIO</div>
           <h1>Google Docs의<br /><em>평가 기준을 만들어요.</em></h1>
-          <p>과제와 루브릭을 입력해 학급 전용 링크를 만드세요. 학생들은 받은 링크에서 Google Docs 글을 제출할 수 있습니다.</p>
+          <p>과제와 루브릭을 정한 뒤 교사가 수집한 학생별 Google Docs 주소를 직접 평가하세요.</p>
           <div className="security-note">
             <strong>{teacherId ? `${teacherId} 선생님의 보관함에 저장돼요` : "다음에도 바로 이어서 사용할 수 있어요"}</strong>
-            <p>API 키는 교사 보관함에서 별도로 관리합니다. 여기서는 평가 기준과 모델만 저장합니다.</p>
+            <p>평가 기준만 보관하며 학생 정보와 문서 내용은 Feedforward에 저장하지 않습니다.</p>
           </div>
         </div>
 
-        <form className="settings-form" onSubmit={createClassLink}>
+        <form className="settings-form" onSubmit={studentSubmissionLinksEnabled ? createClassLink : (event) => event.preventDefault()}>
           <div className="settings-title">
             <span>01</span>
             <div><h2>Google Docs 평가 설정</h2><p>PDF 평가 설정과 별도로 저장됩니다.</p></div>
           </div>
           {storageMessage && <div className="storage-message">{storageMessage}</div>}
           <label className="field full">
-            <span>학급 링크 이름 <b>*</b></span>
+            <span>평가 이름 <b>*</b></span>
             <input value={settings.classTitle} onChange={(e) => setSettings({ ...settings, classTitle: e.target.value })} />
           </label>
           <label className="field full">
@@ -213,6 +239,7 @@ export default function GoogleDocsTeacherPage() {
             value={settings.outputOptions}
             onChange={(outputOptions) => setSettings({ ...settings, outputOptions })}
             allowGoogleDocsAppend
+            teacherManaged
             googleAuth={{
               ...googleAuth,
               connectHref: teacherId
@@ -236,12 +263,14 @@ export default function GoogleDocsTeacherPage() {
             </button>
             <button type="button" className="danger-text-button" onClick={resetSettings}>입력 초기화</button>
           </div>
-          <div className="settings-actions">
-            <button type="button" className="text-button" onClick={() => setSettings(defaultGoogleDocsClassConfig)}>기본 루브릭으로 되돌리기</button>
-            <button className="primary-button save-button" disabled={loading}>{loading ? "암호화 링크 만드는 중..." : "저장하고 학생용 링크 만들기"}</button>
-          </div>
+          {studentSubmissionLinksEnabled && (
+            <div className="settings-actions">
+              <button type="button" className="text-button" onClick={() => setSettings(defaultGoogleDocsClassConfig)}>기본 루브릭으로 되돌리기</button>
+              <button className="primary-button save-button" disabled={loading}>{loading ? "암호화 링크 만드는 중..." : "저장하고 학생용 링크 만들기"}</button>
+            </div>
+          )}
 
-          {classUrl && (
+          {studentSubmissionLinksEnabled && classUrl && (
             <div className="class-link-result">
               <span>Google Docs 학급 링크가 준비됐어요</span>
               <strong>이 주소를 학생들에게 전달해 주세요.</strong>
@@ -252,6 +281,11 @@ export default function GoogleDocsTeacherPage() {
           )}
         </form>
       </section>
+      <TeacherDirectEvaluator
+        kind="docs"
+        teacherId={teacherId}
+        prepareToken={prepareEvaluationToken}
+      />
       <footer>LEAFBACK · GOOGLE DOCS 교사용 평가 설정</footer>
     </main>
   );

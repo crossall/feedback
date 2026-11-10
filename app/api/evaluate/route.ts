@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { decryptClassConfig } from "@/lib/class-config";
 import { EvaluationRequestError, requestEvaluation } from "@/lib/llm-evaluation";
 import { getTeacherApiKeys } from "@/lib/server/teacher-store";
+import { studentSubmissionLinksEnabled } from "@/lib/feature-flags";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -39,6 +40,12 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "학급 링크가 올바르지 않습니다. 선생님께 새 링크를 요청해 주세요." },
         { status: 400 },
+      );
+    }
+    if (!studentSubmissionLinksEnabled && classConfig.submissionMode !== "teacher") {
+      return NextResponse.json(
+        { error: "학생이 직접 제출하는 방식은 현재 사용하지 않습니다." },
+        { status: 410 },
       );
     }
     const teacherApiKeys = await getTeacherApiKeys(classConfig.teacherId ?? "");

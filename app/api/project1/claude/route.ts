@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTeacherApiKeys } from "@/lib/server/teacher-store";
+import { getProjectInstanceById } from "@/lib/server/project-instance-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -92,6 +93,7 @@ export async function POST(request: Request) {
       messages?: AnthropicMessage[];
       maxTokens?: number;
       temperature?: number;
+      instanceId?: string;
     };
     if (!Array.isArray(body.messages) || body.messages.length === 0) {
       return NextResponse.json({ error: "Claude 메시지를 확인해 주세요." }, { status: 400 });
@@ -100,8 +102,16 @@ export async function POST(request: Request) {
     const shouldUseWebSearch = body.messages.some(hasDocumentContent);
     const messages = messagesWithFactCheck(body.messages);
 
-    const apiKeys = await getTeacherApiKeys("4523");
-    const apiKey = process.env.PROJECT1_ANTHROPIC_API_KEY?.trim() || apiKeys.anthropic;
+    const instance = body.instanceId
+      ? await getProjectInstanceById(body.instanceId, "project1")
+      : null;
+    if (body.instanceId && !instance) {
+      return NextResponse.json({ error: "프로젝트 주소를 확인해 주세요." }, { status: 404 });
+    }
+    const apiKeys = await getTeacherApiKeys(instance?.teacherId || "4523");
+    const apiKey = instance
+      ? apiKeys.anthropic
+      : process.env.PROJECT1_ANTHROPIC_API_KEY?.trim() || apiKeys.anthropic;
     if (!apiKey) {
       return NextResponse.json(
         { error: "Claude API 키가 없습니다. 교사 보관함에 Claude API 키를 저장해 주세요." },

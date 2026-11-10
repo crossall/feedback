@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>3수준 루브릭 설계 템플릿</title>
+  <style>
+    :root {
+      --ink: #15221f;
+      --muted: #5c6d68;
+      --line: #bdcbc6;
+      --soft: #f1f7f4;
+      --accent: #176b5b;
+      --accent-light: #e3f4ef;
+      --paper: #fff;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: #e8efec; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #e8efec;
+      font-family: "Pretendard", "Noto Sans KR", "Malgun Gothic", Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      word-break: keep-all;
+    }
+
+    button { font: inherit; }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      justify-content: flex-end;
+      width: min(297mm, calc(100% - 24px));
+      margin: auto;
+      padding: 12px 4px;
+    }
+
+    .print-button {
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--accent);
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(23, 107, 91, .22);
+    }
+
+    .sheet {
+      width: min(297mm, calc(100% - 24px));
+      min-height: 210mm;
+      margin: 0 auto 28px;
+      padding: 13mm 14mm;
+      background: var(--paper);
+      box-shadow: 0 12px 36px rgba(25, 47, 42, .13);
+    }
+
+    .topline {
+      display: flex;
+      gap: 24px;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .eyebrow {
+      margin: 0 0 4px;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .13em;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(25px, 4vw, 36px);
+      line-height: 1.18;
+      letter-spacing: -.035em;
+    }
+
+    .subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .privacy {
+      max-width: 390px;
+      margin: 0;
+      padding: 9px 11px;
+      border-left: 4px solid var(--accent);
+      background: var(--accent-light);
+      color: #315c53;
+      font-size: 11px;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: 1.2fr 1.2fr .8fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .field {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      min-height: 34px;
+      padding: 7px 9px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .field strong {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .field span { flex: 1; border-bottom: 1px solid #81918c; }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      min-width: 820px;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th, td {
+      border: 1px solid #aebdb8;
+      vertical-align: top;
+    }
+
+    thead th {
+      padding: 9px 8px;
+      color: #fff;
+      background: var(--accent);
+      font-size: 12px;
+      text-align: center;
+    }
+
+    thead th:first-child { width: 17%; }
+    thead th:not(:first-child) { width: 27.666%; }
+
+    .level {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 14px;
+    }
+
+    .level-note {
+      display: block;
+      color: #d8f2ec;
+      font-size: 9px;
+      font-weight: 500;
+    }
+
+    tbody th {
+      height: 84px;
+      padding: 8px;
+      background: var(--soft);
+      text-align: left;
+    }
+
+    .criterion-number {
+      display: inline-grid;
+      width: 22px;
+      height: 22px;
+      place-items: center;
+      margin-bottom: 6px;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--accent);
+      font-size: 11px;
+    }
+
+    .criterion-line {
+      height: 31px;
+      border-bottom: 1px solid #6d7e78;
+    }
+
+    tbody td { padding: 7px 9px; }
+
+    .ruled {
+      height: 68px;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 20px,
+        #d8e0dd 21px
+      );
+    }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .note-box {
+      min-height: 76px;
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      break-inside: avoid;
+    }
+
+    .note-box h2 {
+      margin: 0 0 4px;
+      color: var(--accent);
+      font-size: 12px;
+    }
+
+    .note-box p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .note-lines {
+      height: 38px;
+      background: repeating-linear-gradient(to bottom, transparent 0, transparent 18px, #d8e0dd 19px);
+    }
+
+    footer {
+      margin-top: 9px;
+      color: var(--muted);
+      font-size: 9px;
+      text-align: right;
+    }
+
+    @media (max-width: 760px) {
+      .sheet { padding: 28px 18px; }
+      .topline { display: block; }
+      .privacy { max-width: none; margin-top: 14px; }
+      .meta, .bottom-grid { grid-template-columns: 1fr; }
+      .table-wrap {
+        margin-right: -18px;
+        padding-right: 18px;
+      }
+    }
+
+    @page { size: A4 landscape; margin: 10mm; }
+
+    @media print {
+      html, body { background: #fff; }
+      .toolbar, .print-button { display: none !important; }
+      .sheet {
+        width: auto;
+        min-height: 0;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+      }
+      .table-wrap { overflow: visible; }
+      table { min-width: 0; }
+      thead th, .criterion-number, .privacy { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      tr, .note-box { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="print-button" type="button" onclick="window.print()">인쇄하기</button>
+  </div>
+
+  <main class="sheet">
+    <header class="topline">
+      <div>
+        <p class="eyebrow">교사용 평가 설계 도구</p>
+        <h1>3수준 루브릭 템플릿</h1>
+        <p class="subtitle">각 수준을 관찰 가능한 행동과 결과물의 증거로 기술하세요.</p>
+      </div>
+      <p class="privacy"><strong>기록 원칙:</strong> 이 설계표에는 학생 이름이나 학번을 적지 않습니다. 개별 평가 기록이 필요하면 학교가 승인한 별도 시스템을 사용하세요.</p>
+    </header>
+
+    <section class="meta" aria-label="루브릭 기본 정보">
+      <div class="field"><strong>과제명</strong><span></span></div>
+      <div class="field"><strong>학습 목표</strong><span></span></div>
+      <div class="field"><strong>적용 시점</strong><span></span></div>
+    </section>
+
+    <div class="table-wrap">
+      <table aria-label="5개 평가 기준과 3개 성취 수준을 작성하는 루브릭">
+        <thead>
+          <tr>
+            <th scope="col">평가 기준</th>
+            <th scope="col"><span class="level">3 · 충분히 도달</span><span class="level-note">목표에 맞는 핵심 증거가 분명함</span></th>
+            <th scope="col"><span class="level">2 · 도달 중</span><span class="level-note">핵심 증거가 일부 있으나 보완이 필요함</span></th>
+            <th scope="col"><span class="level">1 · 시작 단계</span><span class="level-note">기초 증거를 찾고 표현하는 단계임</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row"><span class="criterion-number">1</span><div class="criterion-line" aria-label="첫 번째 평가 기준명"></div></th>
+            <td><div class="ruled" aria-label="첫 번째 기준의 충분히 도달 설명"></div></td>
+            <td><div class="ruled" aria-label="첫 번째 기준의 도달 중 설명"></div></td>
+            <td><div class="ruled" aria-label="첫 번째 기준의 시작 단계 설명"></div></td>
+          </tr>
+          <tr>
+            <th scope="row"><span class="criterion-number">2</span><div class="criterion-line" aria-label="두 번째 평가 기준명"></div></th>
+            <td><div class="ruled" aria-label="두 번째 기준의 충분히 도달 설명"></div></td>
+            <td><div class="ruled" aria-label="두 번째 기준의 도달 중 설명"></div></td>
+            <td><div class="ruled" aria-label="두 번째 기준의 시작 단계 설명"></div></td>
+          </tr>
+          <tr>
+            <th scope="row"><span class="criterion-number">3</span><div class="criterion-line" aria-label="세 번째 평가 기준명"></div></th>
+            <td><div class="ruled" aria-label="세 번째 기준의 충분히 도달 설명"></div></td>
+            <td><div class="ruled" aria-label="세 번째 기준의 도달 중 설명"></div></td>
+            <td><div class="ruled" aria-label="세 번째 기준의 시작 단계 설명"></div></td>
+          </tr>
+          <tr>
+            <th scope="row"><span class="criterion-number">4</span><div class="criterion-line" aria-label="네 번째 평가 기준명"></div></th>
+            <td><div class="ruled" aria-label="네 번째 기준의 충분히 도달 설명"></div></td>
+            <td><div class="ruled" aria-label="네 번째 기준의 도달 중 설명"></div></td>
+            <td><div class="ruled" aria-label="네 번째 기준의 시작 단계 설명"></div></td>
+          </tr>
+          <tr>
+            <th scope="row"><span class="criterion-number">5</span><div class="criterion-line" aria-label="다섯 번째 평가 기준명"></div></th>
+            <td><div class="ruled" aria-label="다섯 번째 기준의 충분히 도달 설명"></div></td>
+            <td><div class="ruled" aria-label="다섯 번째 기준의 도달 중 설명"></div></td>
+            <td><div class="ruled" aria-label="다섯 번째 기준의 시작 단계 설명"></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <section class="bottom-grid" aria-label="루브릭 활용 메모">
+      <div class="note-box">
+        <h2>공통 피드백 질문</h2>
+        <p>학생이 다음 시도에서 스스로 판단하도록 돕는 질문을 적어 보세요.</p>
+        <div class="note-lines"></div>
+      </div>
+      <div class="note-box">
+        <h2>평가 전 교사 점검</h2>
+        <p>기준 간 중복, 수준 간 차이, 실제로 확인 가능한 증거인지 점검하세요.</p>
+        <div class="note-lines"></div>
+      </div>
+    </section>
+
+    <footer>5개 기준 · 3개 수준 · 교사용 빈 양식</footer>
+  </main>
+</body>
+</html>

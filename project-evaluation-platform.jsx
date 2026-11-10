@@ -122,6 +122,7 @@ export function configureProjectEvaluationRuntime(options = {}) {
 function runtimeOptions() {
   return {
     apiBasePath: "/api/project1",
+    instanceId: "",
     footerUrl: "feedforward.kr/project1",
     teacherAuth: PROJECT1_TEACHER_AUTH,
     aiFeedbackCacheSchema: AI_FEEDBACK_CACHE_SCHEMA,
@@ -183,7 +184,11 @@ async function callClaude(messages, maxTokens = 1000) {
   const res = await fetch(`${runtimeOptions().apiBasePath}/claude`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ maxTokens, messages }),
+    body: JSON.stringify({
+      maxTokens,
+      messages,
+      instanceId: runtimeOptions().instanceId || undefined,
+    }),
   });
   const raw = await res.text();
   let data = {};
@@ -1442,6 +1447,29 @@ function ItemCard({ item, value, onChange, accent = "var(--green)" }) {
 /* =================================================================== */
 /* ===============================  APP  ============================= */
 /* =================================================================== */
+const PROJECT1_VIEW_PARAM = "view";
+const PROJECT1_VIEWS = new Set(["teacher-login", "teacher", "student-login", "student"]);
+
+function project1ViewFromUrl() {
+  if (typeof window === "undefined") return "";
+  const view = new URL(window.location.href).searchParams.get(PROJECT1_VIEW_PARAM) || "";
+  return PROJECT1_VIEWS.has(view) ? view : "";
+}
+
+function project1ModeFromUrl() {
+  const view = project1ViewFromUrl();
+  if (view.startsWith("student")) return "student";
+  if (view.startsWith("teacher")) return "teacher";
+  return null;
+}
+
+function writeProject1View(view, replace = false) {
+  const url = new URL(window.location.href);
+  if (view) url.searchParams.set(PROJECT1_VIEW_PARAM, view);
+  else url.searchParams.delete(PROJECT1_VIEW_PARAM);
+  window.history[replace ? "replaceState" : "pushState"](null, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
 export default function App() {
   const [ready, setReady] = useState(false);
   const [storeOk, setStoreOk] = useState(true);
@@ -1457,10 +1485,33 @@ export default function App() {
       const cfg = await store.get("pj_config", true);
       setConfig(withClasses(cfg));
       const saved = await store.get("me_identity", false);
-      if (saved) setMe(saved);
+      const view = project1ViewFromUrl();
+      if (saved && (!view || view === saved.role)) {
+        setMe(saved);
+        if (!view) writeProject1View(saved.role);
+      }
       setReady(true);
     })();
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    let active = true;
+    const syncIdentityFromHistory = async () => {
+      const view = project1ViewFromUrl();
+      if (view !== "teacher" && view !== "student") {
+        setMe(null);
+        return;
+      }
+      const saved = await store.get("me_identity", false);
+      if (active) setMe(saved?.role === view ? saved : null);
+    };
+    window.addEventListener("popstate", syncIdentityFromHistory);
+    return () => {
+      active = false;
+      window.removeEventListener("popstate", syncIdentityFromHistory);
+    };
+  }, [ready]);
 
   useEffect(() => {
     if (!ready || !opts.expoMode) return;
@@ -1490,10 +1541,12 @@ export default function App() {
   }, []);
   const chooseMe = useCallback(async (identity) => {
     setMe(identity);
+    writeProject1View(identity.role);
     await store.set("me_identity", identity, false);
   }, []);
   const reset = useCallback(async () => {
     setMe(null);
+    writeProject1View("", true);
     await store.set("me_identity", null, false);
   }, []);
 
@@ -1803,7 +1856,7 @@ function ExpoGuide({ context, step, tab }) {
 /* ============================  ROLE GATE  ========================= */
 /* =================================================================== */
 function RoleGate({ onPick, config }) {
-  const [mode, setMode] = useState(null); // null | 'student' | 'teacher'
+  const [mode, setMode] = useState(project1ModeFromUrl); // null | 'student' | 'teacher'
   const [cid, setCid] = useState("");
   const [gid, setGid] = useState("");
   const [name, setName] = useState("");
@@ -1812,14 +1865,33 @@ function RoleGate({ onPick, config }) {
   const myGroups = (config?.groups || []).filter((g) => g.classId === cid);
   const group = config?.groups?.find((g) => g.id === gid);
 
+  useEffect(() => {
+    const initialView = project1ViewFromUrl();
+    if (initialView === "student" || initialView === "teacher") {
+      writeProject1View(`${initialView}-login`, true);
+    }
+    const syncModeFromHistory = () => setMode(project1ModeFromUrl());
+    window.addEventListener("popstate", syncModeFromHistory);
+    return () => window.removeEventListener("popstate", syncModeFromHistory);
+  }, []);
+
+  const openMode = (nextMode) => {
+    setMode(nextMode);
+    writeProject1View(`${nextMode}-login`);
+  };
+  const closeMode = () => {
+    setMode(null);
+    writeProject1View("", true);
+  };
+
   if (mode === "teacher") {
-    return <TeacherGate onBack={() => setMode(null)} onAuthed={(tname) => onPick({ role: "teacher", name: tname })} />;
+    return <TeacherGate onBack={closeMode} onAuthed={(tname) => onPick({ role: "teacher", name: tname })} />;
   }
 
   if (mode === "student") {
     return (
       <div className="fade" style={{ maxWidth: 520, margin: "30px auto" }}>
-        <button className="btn ghost" onClick={() => setMode(null)} style={{ marginBottom: 12 }}>
+        <button className="btn ghost" onClick={closeMode} style={{ marginBottom: 12 }}>
           <ArrowLeft size={16} /> 뒤로
         </button>
         <div className="card pad-lg">
@@ -1879,17 +1951,19 @@ function RoleGate({ onPick, config }) {
         </p>
       </div>
       <div className="role-grid">
-        <div className="role" onClick={() => teacherOpenAccess ? onPick({ role: "teacher", name: "관람 교사" }) : setMode("teacher")}>
+        <div className="role" onClick={() => teacherOpenAccess ? onPick({ role: "teacher", name: "관람 교사" }) : openMode("teacher")}>
           <div className="ic" style={{ background: "var(--green-soft)", color: "var(--green-700)" }}><GraduationCap size={28} /></div>
           <div className="h2">선생님</div>
           <p className="muted" style={{ fontSize: 13.5, marginTop: 6 }}>
             {teacherOpenAccess
-              ? "전시관에서는 비밀번호 없이 교사용 흐름을 둘러볼 수 있습니다. 설정 변경과 데이터 수정은 잠겨 있습니다."
+              ? (runtimeOptions().teacherReadOnly
+                ? "전시관에서는 비밀번호 없이 교사용 흐름을 둘러볼 수 있습니다. 설정 변경과 데이터 수정은 잠겨 있습니다."
+                : "로그인한 프로젝트 소유자가 설정과 결과를 관리합니다.")
               : "프로젝트·루브릭·모둠을 설정하고, 학생 평가 링크를 배포하고, 모든 결과를 한 번에 확인합니다."}
           </p>
-          <div className="pill green" style={{ marginTop: 14 }}>{teacherOpenAccess ? "읽기 전용 관람" : "설정 · 통합 조회"} <ChevronRight size={13} /></div>
+          <div className="pill green" style={{ marginTop: 14 }}>{teacherOpenAccess && runtimeOptions().teacherReadOnly ? "읽기 전용 관람" : "설정 · 통합 조회"} <ChevronRight size={13} /></div>
         </div>
-        <div className="role" onClick={() => setMode("student")}>
+        <div className="role" onClick={() => openMode("student")}>
           <div className="ic" style={{ background: "var(--accent-soft)", color: "var(--accent-700)" }}><UserCircle2 size={28} /></div>
           <div className="h2">학생</div>
           <p className="muted" style={{ fontSize: 13.5, marginTop: 6 }}>

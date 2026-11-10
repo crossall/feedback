@@ -5,6 +5,9 @@ import { FormEvent, useEffect, useState } from "react";
 import { providerFromModel } from "@/lib/class-config";
 import { defaultClassConfig } from "@/lib/defaults";
 import EvaluationOutputOptionsField from "@/app/evaluation-output-options";
+import TeacherDirectEvaluator from "@/app/teacher-direct-evaluator";
+import TeacherPrivacyBanner from "@/app/teacher-privacy-banner";
+import { studentSubmissionLinksEnabled } from "@/lib/feature-flags";
 import {
   isTeacherId,
   loadEvaluation,
@@ -111,6 +114,20 @@ export default function TeacherPage() {
     window.setTimeout(() => setCopied(false), 1800);
   }
 
+  async function prepareEvaluationToken() {
+    const saved = await persistSettings("평가 설정을 저장하고 교사용 평가를 준비했어요.");
+    const response = await fetch("/api/teacher/evaluation-token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teacherId, evaluationId: saved.id, type: "pdf" }),
+    });
+    const data = await response.json() as { token?: string; error?: string };
+    if (!response.ok || !data.token) {
+      throw new Error(data.error || "교사용 평가를 준비하지 못했습니다.");
+    }
+    return data.token;
+  }
+
   return (
     <main>
       <header className="site-header">
@@ -122,29 +139,31 @@ export default function TeacherPage() {
         <nav className="header-links">
           {teacherId && <Link className="teacher-link" href={`/teacher/${teacherId}`}>내 평가 보관함</Link>}
           <Link className="teacher-link" href={teacherId ? `/docs/teacher?teacher=${teacherId}` : "/docs/teacher"}>Google Docs 교사 설정</Link>
-          <Link className="teacher-link" href="/">학생 화면 보기</Link>
+          {studentSubmissionLinksEnabled && <Link className="teacher-link" href="/">학생 화면 보기</Link>}
         </nav>
       </header>
+
+      <TeacherPrivacyBanner kind="pdf" />
 
       <section className="teacher-page">
         <div className="teacher-intro">
           <div className="eyebrow"><span /> TEACHER STUDIO</div>
           <h1>우리 반의<br /><em>평가 기준을 만들어요.</em></h1>
-          <p>루브릭과 평가 모델을 정해 학급 전용 링크를 만드세요. 학생들은 받은 링크에서 바로 PDF 작품을 제출할 수 있습니다.</p>
+          <p>루브릭과 평가 모델을 정한 뒤 학생의 PDF 작품을 교사가 직접 올려 평가하세요.</p>
           <div className="security-note">
             <strong>{teacherId ? `${teacherId} 선생님의 보관함에 저장돼요` : "다음에도 바로 이어서 사용할 수 있어요"}</strong>
-            <p>API 키는 교사 보관함에서 별도로 관리합니다. 여기서는 평가 기준과 모델만 저장합니다.</p>
+            <p>평가 기준만 보관하며 학생 정보와 PDF 파일은 Feedforward에 저장하지 않습니다.</p>
           </div>
         </div>
 
-        <form className="settings-form" onSubmit={createClassLink}>
+        <form className="settings-form" onSubmit={studentSubmissionLinksEnabled ? createClassLink : (event) => event.preventDefault()}>
           <div className="settings-title">
             <span>01</span>
             <div><h2>학급 평가 설정</h2><p>저장된 설정은 다음 접속 때 자동으로 불러옵니다.</p></div>
           </div>
           {storageMessage && <div className="storage-message">{storageMessage}</div>}
           <label className="field full">
-            <span>학급 링크 이름 <b>*</b></span>
+            <span>평가 이름 <b>*</b></span>
             <input value={settings.classTitle} onChange={(e) => setSettings({ ...settings, classTitle: e.target.value })} />
           </label>
           <label className="field full">
@@ -181,6 +200,7 @@ export default function TeacherPage() {
             value={settings.outputOptions}
             onChange={(outputOptions) => setSettings({ ...settings, outputOptions })}
             allowGoogleDocsAppend={false}
+            teacherManaged
           />
           {error && <div className="error-message">{error}</div>}
           <div className="teacher-storage-actions">
@@ -196,12 +216,14 @@ export default function TeacherPage() {
             </button>
             <button type="button" className="danger-text-button" onClick={resetSettings}>입력 초기화</button>
           </div>
-          <div className="settings-actions">
-            <button type="button" className="text-button" onClick={() => setSettings(defaultClassConfig)}>기본 루브릭으로 되돌리기</button>
-            <button className="primary-button save-button" disabled={loading}>{loading ? "암호화 링크 만드는 중..." : "저장하고 학생용 링크 만들기"}</button>
-          </div>
+          {studentSubmissionLinksEnabled && (
+            <div className="settings-actions">
+              <button type="button" className="text-button" onClick={() => setSettings(defaultClassConfig)}>기본 루브릭으로 되돌리기</button>
+              <button className="primary-button save-button" disabled={loading}>{loading ? "암호화 링크 만드는 중..." : "저장하고 학생용 링크 만들기"}</button>
+            </div>
+          )}
 
-          {classUrl && (
+          {studentSubmissionLinksEnabled && classUrl && (
             <div className="class-link-result">
               <span>학급 링크가 준비됐어요</span>
               <strong>이 주소를 학생들에게 전달해 주세요.</strong>
@@ -212,6 +234,11 @@ export default function TeacherPage() {
           )}
         </form>
       </section>
+      <TeacherDirectEvaluator
+        kind="pdf"
+        teacherId={teacherId}
+        prepareToken={prepareEvaluationToken}
+      />
       <footer>LEAFBACK · PDF 교사용 평가 설정</footer>
     </main>
   );

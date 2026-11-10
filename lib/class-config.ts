@@ -45,12 +45,13 @@ export type ClassConfig = {
   instruction: string;
   outputOptions: EvaluationOutputOptions;
   teacherId?: string;
+  submissionMode?: "student" | "teacher";
 };
 
 function getKey() {
-  const secret = process.env.CLASS_CONFIG_SECRET;
+  const secret = process.env.CLASS_CONFIG_SECRET || process.env.TEACHER_STORAGE_SECRET;
   if (!secret || secret.length < 32) {
-    throw new Error("CLASS_CONFIG_SECRET is not configured.");
+    throw new Error("CLASS_CONFIG_SECRET or TEACHER_STORAGE_SECRET is not configured.");
   }
   return createHash("sha256").update(secret).digest();
 }
