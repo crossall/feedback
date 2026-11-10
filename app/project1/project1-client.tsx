@@ -26,6 +26,24 @@ async function project1Storage(instanceId: string, action: "get" | "set" | "list
   return data;
 }
 
+async function authorizeLegacyProject1Teacher(password: string) {
+  const response = await fetch("/api/project1/review-session", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "교사 로그인을 확인하지 못했습니다.");
+  return data;
+}
+
+async function verifyLegacyProject1Teacher() {
+  const response = await fetch("/api/project1/review-session", { cache: "no-store" });
+  if (!response.ok) return false;
+  const data = await response.json();
+  return data.authenticated === true;
+}
+
 function installStorageBridge(instanceId: string) {
   if (typeof window === "undefined") return;
   const appScope = instanceId ? `project1:${instanceId}` : "project1";
@@ -71,6 +89,9 @@ export default function Project1Client({
   configureProjectEvaluationRuntime({
     instanceId,
     allowEmptyClasses: Boolean(instanceId),
+    aiFeedbackApprovalRequired: true,
+    authorizeTeacherReview: instanceId ? null : authorizeLegacyProject1Teacher,
+    verifyTeacherReviewSession: instanceId ? null : verifyLegacyProject1Teacher,
     teacherOpenAccess: Boolean(instanceId) && ownerAccess,
     footerUrl: instanceId ? `feedforward.kr/${instanceId}` : "feedforward.kr/project1",
     ...(instanceId ? { teacherAuth: { accounts: [] } } : {}),

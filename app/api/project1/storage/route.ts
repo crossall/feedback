@@ -108,6 +108,12 @@ export async function POST(request: Request) {
 
     if (body.action === "set") {
       const key = safeKey(body.key);
+      if (key.startsWith("pj_draft_")) {
+        return NextResponse.json(
+          { error: "AI 피드백 초안은 교사 승인 절차를 통해서만 변경할 수 있습니다." },
+          { status: 403 },
+        );
+      }
       if (
         instance
         && ["pj_config", "pj_teacher_auth", "pj_student_stage_control"].includes(key)

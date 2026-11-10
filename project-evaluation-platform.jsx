@@ -134,6 +134,9 @@ function runtimeOptions() {
     guideMode: false,
     teacherOpenAccess: false,
     teacherReadOnly: false,
+    aiFeedbackApprovalRequired: false,
+    authorizeTeacherReview: null,
+    verifyTeacherReviewSession: null,
     allowIncompletePeerStep: false,
     themeCss: "",
     projectTitlePlaceholder: "예: 식물 안내서 만들기",
@@ -195,6 +198,23 @@ async function callClaude(messages, maxTokens = 1000) {
   try { data = raw ? JSON.parse(raw) : {}; } catch (e) { data = { error: raw }; }
   if (!res.ok) throw new Error(data.error || "Claude 요청에 실패했습니다.");
   return data.text || "";
+}
+
+async function callFeedbackReview(action, payload = {}) {
+  const res = await fetch(`${runtimeOptions().apiBasePath}/feedback`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action,
+      instanceId: runtimeOptions().instanceId || undefined,
+      ...payload,
+    }),
+  });
+  const raw = await res.text();
+  let data = {};
+  try { data = raw ? JSON.parse(raw) : {}; } catch (e) { data = { error: raw }; }
+  if (!res.ok) throw new Error(data.error || "AI 피드백 검토 요청에 실패했습니다.");
+  return data;
 }
 
 const MAX_PROJECT_PDF_BYTES = 22 * 1024 * 1024;
@@ -1321,8 +1341,21 @@ a.link{color:var(--green-700);font-weight:700;text-decoration:none;border-bottom
   right:26px;
   left:auto;
 }
+.teacher-feedback-layout{
+  display:grid;
+  grid-template-columns:minmax(250px,320px) minmax(0,1fr);
+  gap:16px;
+  align-items:start;
+}
+.teacher-feedback-detail{
+  display:grid;
+  grid-template-columns:minmax(320px,.95fr) minmax(360px,1.05fr);
+  gap:14px;
+  align-items:start;
+}
 
 @media (max-width:1180px){
+  .teacher-feedback-detail{grid-template-columns:1fr}
   .expo-intro{grid-template-columns:1fr}
   .expo-flow-steps{grid-template-columns:repeat(3, minmax(0, 1fr))}
   .expo-flow-step:nth-child(3){border-right:none}
@@ -1354,13 +1387,15 @@ a.link{color:var(--green-700);font-weight:700;text-decoration:none;border-bottom
 }
 
 @media (max-width:860px){
+  .teacher-feedback-layout{grid-template-columns:1fr}
   .layout{grid-template-columns:1fr}
   .rail{position:static}
   .role-grid{grid-template-columns:1fr}
   .wrap > .fade{width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}
   .pj-root .h1{font-size:26px!important;line-height:1.24}
   .role p,.lede,.muted,.hint{word-break:break-all}
-  .steps{display:flex;overflow-x:auto;gap:6px}
+  .steps{overflow-x:auto}
+  .steps > div{display:flex;gap:6px;min-width:max-content;padding-bottom:4px}
   .node{flex-direction:column;align-items:center;min-width:110px;text-align:center}
   .connector{display:none}
   .node .sub{display:none}
@@ -1484,7 +1519,14 @@ export default function App() {
       setStoreOk(ok);
       const cfg = await store.get("pj_config", true);
       setConfig(withClasses(cfg));
-      const saved = await store.get("me_identity", false);
+      let saved = await store.get("me_identity", false);
+      if (saved?.role === "teacher" && typeof runtimeOptions().verifyTeacherReviewSession === "function") {
+        const validTeacherSession = await runtimeOptions().verifyTeacherReviewSession();
+        if (!validTeacherSession) {
+          saved = null;
+          await store.set("me_identity", null, false);
+        }
+      }
       const view = project1ViewFromUrl();
       if (saved && (!view || view === saved.role)) {
         setMe(saved);
@@ -1984,6 +2026,7 @@ function TeacherGate({ onAuthed, onBack }) {
   const [acct, setAcct] = useState(() => mergeTeacherAuth(null, runtimeOptions().teacherAuth));
   const [pw, setPw] = useState("");
   const [err, setErr] = useState("");
+  const [authenticating, setAuthenticating] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -1993,11 +2036,21 @@ function TeacherGate({ onAuthed, onBack }) {
     })();
   }, []);
 
-  const login = () => {
+  const login = async () => {
     setErr("");
     const account = findTeacherAuthAccount(acct, pw);
     if (!account) return setErr("비밀번호가 맞지 않아요. 다시 입력해 주세요.");
-    onAuthed(account.name || "");
+    setAuthenticating(true);
+    try {
+      if (typeof runtimeOptions().authorizeTeacherReview === "function") {
+        await runtimeOptions().authorizeTeacherReview(pw);
+      }
+      onAuthed(account.name || "");
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "교사 로그인을 확인하지 못했습니다.");
+    } finally {
+      setAuthenticating(false);
+    }
   };
 
   const onEnter = (fn) => (e) => { if (e.key === "Enter") fn(); };
@@ -2026,8 +2079,8 @@ function TeacherGate({ onAuthed, onBack }) {
                 onChange={(e) => setPw(e.target.value)} onKeyDown={onEnter(login)} />
             </div>
             {err && <Banner kind="warn">{err}</Banner>}
-            <button className="btn primary lg" style={{ width: "100%", marginTop: 6 }} onClick={login}>
-              <GraduationCap size={16} /> 들어가기
+            <button className="btn primary lg" style={{ width: "100%", marginTop: 6 }} onClick={login} disabled={authenticating}>
+              {authenticating ? <><Loader2 className="spin" size={16} /> 확인 중…</> : <><GraduationCap size={16} /> 들어가기</>}
             </button>
           </>
         )}
@@ -2058,6 +2111,7 @@ function TeacherApp({ config, saveConfig }) {
     ["setup", "프로젝트 설정", Settings],
     ["rubric", "평가 루브릭", ClipboardList],
     ["groups", "모둠 구성", Users],
+    ...(runtimeOptions().aiFeedbackApprovalRequired ? [["feedback", "AI 피드백 검토", Sparkles]] : []),
     ["results", "결과 통합조회", BarChart3],
   ];
 
@@ -2096,6 +2150,7 @@ function TeacherApp({ config, saveConfig }) {
       {tab === "setup" && <TeacherSetup draft={draft} setDraft={setDraft} configSaved={!!config} readOnly={readOnly} />}
       {tab === "rubric" && <TeacherRubric draft={draft} setDraft={setDraft} readOnly={readOnly} />}
       {tab === "groups" && <TeacherGroups draft={draft} setDraft={setDraft} readOnly={readOnly} />}
+      {tab === "feedback" && <TeacherFeedbackReview config={config} readOnly={readOnly} />}
       {tab === "results" && <TeacherResults config={config} />}
       <ExpoGuide context="teacher" tab={tab} />
     </div>
@@ -2593,6 +2648,261 @@ function MemberAdder({ onAdd, disabled = false }) {
   );
 }
 
+function feedbackReviewLabel(status) {
+  if (status === "generating") return "AI 생성 중";
+  if (status === "pending_review") return "검토 대기";
+  if (status === "approved") return "학생 공개 완료";
+  if (status === "changes_requested") return "재제출 요청";
+  if (status === "failed") return "생성 실패";
+  return "요청 없음";
+}
+
+function feedbackReviewPill(status) {
+  if (status === "approved") return "green";
+  if (status === "pending_review" || status === "generating") return "accent";
+  if (status === "failed" || status === "changes_requested") return "rose";
+  return "gray";
+}
+
+/* ---------- 교사: AI 피드백 검토 ---------- */
+function TeacherFeedbackReview({ config, readOnly = false }) {
+  const [reviews, setReviews] = useState([]);
+  const [detail, setDetail] = useState(null);
+  const [selectedGroupId, setSelectedGroupId] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState("all");
+  const [teacherNote, setTeacherNote] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  const groupsById = Object.fromEntries((config.groups || []).map((group) => [group.id, group]));
+
+  const openReview = useCallback(async (review) => {
+    if (!review) {
+      setSelectedGroupId("");
+      setDetail(null);
+      return;
+    }
+    setSelectedGroupId(review.groupId);
+    setDetailLoading(true);
+    setError("");
+    try {
+      const data = await callFeedbackReview("detail", {
+        groupId: review.groupId,
+        requestId: review.requestId,
+      });
+      setDetail(data.review || null);
+      setTeacherNote(data.review?.teacherNote || "");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "피드백 상세 내용을 불러오지 못했습니다.");
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  const load = useCallback(async (preferredGroupId = "") => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await callFeedbackReview("list");
+      const nextReviews = Array.isArray(data.reviews) ? data.reviews : [];
+      setReviews(nextReviews);
+      const preferred = nextReviews.find((review) => review.groupId === preferredGroupId);
+      const next = preferred
+        || nextReviews.find((review) => review.status === "pending_review")
+        || nextReviews[0]
+        || null;
+      await openReview(next);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "AI 피드백 검토 목록을 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }, [openReview]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const runAction = async (action) => {
+    if (!detail || readOnly) return;
+    const message = action === "approve"
+      ? "이 AI 피드백을 학생 모둠에 공개할까요?"
+      : action === "regenerate"
+        ? "현재 피드백을 버리고 AI 피드백을 다시 만들까요?"
+        : "학생에게 새 PDF 제출을 요청할까요?";
+    if (!window.confirm(message)) return;
+    setBusy(action);
+    setError("");
+    try {
+      await callFeedbackReview(action, {
+        groupId: detail.groupId,
+        requestId: detail.requestId,
+        teacherNote,
+      });
+      await load(detail.groupId);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "피드백 검토 내용을 저장하지 못했습니다.");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const shown = reviews.filter((review) => {
+    const group = groupsById[review.groupId];
+    return selectedClassId === "all" || group?.classId === selectedClassId;
+  }).sort((a, b) => {
+    const priority = { pending_review: 0, generating: 1, failed: 2, changes_requested: 3, approved: 4 };
+    return (priority[a.status] ?? 9) - (priority[b.status] ?? 9) || b.updatedAt - a.updatedAt;
+  });
+  const pendingCount = reviews.filter((review) => review.status === "pending_review").length;
+  const selectedItems = detail?.aiFeedback?.items || [];
+
+  return (
+    <div className="fade">
+      <div className="between" style={{ marginBottom: 14, gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div className="eyebrow"><Sparkles size={14} /> 교사 확인 후 공개</div>
+          <h2 className="h2" style={{ margin: "4px 0" }}>AI 피드백 검토</h2>
+          <p className="hint" style={{ margin: 0 }}>학생에게 보여 주기 전에 PDF의 실제 내용과 AI 판단을 함께 확인합니다.</p>
+        </div>
+        <div className="center" style={{ gap: 8, flexWrap: "wrap" }}>
+          <span className={`pill ${pendingCount ? "accent" : "gray"}`}><Eye size={14} /> 검토 대기 {pendingCount}건</span>
+          <button className="btn sm" onClick={() => load(selectedGroupId)} disabled={loading || detailLoading}>
+            <RefreshCw size={15} className={loading ? "spin" : ""} /> 새로고침
+          </button>
+        </div>
+      </div>
+
+      {error && <div style={{ marginBottom: 12 }}><Banner kind="warn">{error}</Banner></div>}
+
+      <div className="tabs" style={{ marginBottom: 14 }}>
+        <button className={`tab ${selectedClassId === "all" ? "on" : ""}`} onClick={() => setSelectedClassId("all")}>전체</button>
+        {(config.classes || []).map((schoolClass) => (
+          <button key={schoolClass.id} className={`tab ${selectedClassId === schoolClass.id ? "on" : ""}`} onClick={() => setSelectedClassId(schoolClass.id)}>
+            {schoolClass.name}
+          </button>
+        ))}
+      </div>
+
+      {loading && reviews.length === 0 ? (
+        <div className="center muted" style={{ padding: 42 }}><Loader2 className="spin" size={18} /> 검토 요청을 불러오는 중…</div>
+      ) : shown.length === 0 ? (
+        <div className="card pad-lg center" style={{ justifyContent: "center", minHeight: 160 }}>
+          <CheckCircle2 size={22} color="var(--green-700)" /> 이 범위에는 아직 AI 피드백 요청이 없습니다.
+        </div>
+      ) : (
+        <div className="teacher-feedback-layout">
+          <div className="card" style={{ overflow: "hidden" }}>
+            {shown.map((review) => {
+              const group = groupsById[review.groupId];
+              const active = selectedGroupId === review.groupId;
+              return (
+                <button key={`${review.groupId}-${review.requestId}`} type="button" onClick={() => openReview(review)}
+                  style={{ width: "100%", border: 0, borderBottom: "1px solid var(--line)", background: active ? "var(--teal-soft)" : "var(--surface)", padding: 14, textAlign: "left", cursor: "pointer", color: "inherit" }}>
+                  <div className="between" style={{ gap: 8 }}>
+                    <b>{group?.name || review.groupId}</b>
+                    <span className={`pill ${feedbackReviewPill(review.status)}`} style={{ fontSize: 10 }}>{feedbackReviewLabel(review.status)}</span>
+                  </div>
+                  <div className="muted" style={{ fontSize: 12.5, marginTop: 6, overflowWrap: "anywhere" }}>{review.fileName}</div>
+                  <div className="hint" style={{ marginTop: 4 }}>{review.submittedBy} · {new Date(review.requestedAt).toLocaleString("ko-KR")}</div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div>
+            {detailLoading || !detail ? (
+              <div className="card pad-lg center" style={{ justifyContent: "center", minHeight: 260 }}>
+                {detailLoading ? <><Loader2 className="spin" size={18} /> 상세 내용을 불러오는 중…</> : "검토할 모둠을 선택해 주세요."}
+              </div>
+            ) : (
+              <div className="fade">
+                <div className="between" style={{ marginBottom: 12, gap: 10, flexWrap: "wrap" }}>
+                  <div>
+                    <h3 className="h2" style={{ margin: 0 }}>{groupsById[detail.groupId]?.name || detail.groupId}</h3>
+                    <div className="hint" style={{ marginTop: 4 }}>{detail.fileName} · {detail.submittedBy} 제출 · {detail.version}차 요청</div>
+                  </div>
+                  <span className={`pill ${feedbackReviewPill(detail.status)}`}>{feedbackReviewLabel(detail.status)}</span>
+                </div>
+
+                <div className="teacher-feedback-detail">
+                  <div className="card" style={{ overflow: "hidden" }}>
+                    <div className="between" style={{ padding: "10px 12px", borderBottom: "1px solid var(--line)" }}>
+                      <b className="center"><FileText size={16} /> 학생 PDF</b>
+                      <span className="hint">{Math.max(1, Math.round((detail.fileSize || 0) / 1024))}KB</span>
+                    </div>
+                    {detail.pdfData
+                      ? <iframe title={`${groupsById[detail.groupId]?.name || detail.groupId} PDF`} src={detail.pdfData} style={{ display: "block", width: "100%", height: 620, border: 0, background: "#eef1f4" }} />
+                      : <div className="center muted" style={{ minHeight: 260, justifyContent: "center" }}>PDF를 불러올 수 없습니다.</div>}
+                  </div>
+
+                  <div>
+                    {detail.status === "generating" && <Banner kind="info"><Loader2 className="spin" size={16} /> AI 피드백을 생성하고 있습니다.</Banner>}
+                    {detail.status === "failed" && (
+                      <div style={{ marginBottom: 12 }}>
+                        <Banner kind="warn">{detail.error || "AI 피드백 생성에 실패했습니다."}</Banner>
+                        {!readOnly && (
+                          <button className="btn" style={{ marginTop: 8 }} disabled={Boolean(busy)} onClick={() => runAction("regenerate")}>
+                            <RefreshCw size={15} className={busy === "regenerate" ? "spin" : ""} /> AI 피드백 다시 생성
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {detail.aiFeedback ? (
+                      <>
+                        <div className="card pad" style={{ marginBottom: 12 }}>
+                          <div className="between" style={{ marginBottom: 8 }}>
+                            <b className="center"><Sparkles size={16} color="var(--teal)" /> AI 생성 결과</b>
+                            <b style={{ color: "var(--teal)" }}>{detail.aiFeedback.aiScore} / {detail.aiFeedback.aiMax}</b>
+                          </div>
+                          {detail.aiFeedback.summary && <p style={{ margin: "0 0 10px", lineHeight: 1.6 }}>{detail.aiFeedback.summary}</p>}
+                          {detail.aiFeedback.good && <div style={{ background: "var(--green-soft)", padding: 10, marginBottom: 8 }}><b>잘한 점</b><div style={{ marginTop: 4, lineHeight: 1.6 }}>{detail.aiFeedback.good}</div></div>}
+                          {detail.aiFeedback.improve && <div style={{ background: "var(--accent-soft)", padding: 10 }}><b>고치면 좋을 점</b><div style={{ marginTop: 4, lineHeight: 1.6 }}>{detail.aiFeedback.improve}</div></div>}
+                        </div>
+                        <div className="card" style={{ marginBottom: 12, overflow: "hidden" }}>
+                          {selectedItems.map((item) => {
+                            const rubricItem = aiItems(config).find((candidate) => candidate.no === item.no);
+                            return (
+                              <div key={item.no} style={{ padding: 12, borderBottom: "1px solid var(--line)" }}>
+                                <div className="between" style={{ gap: 8 }}>
+                                  <b>{item.no}. {rubricItem?.name || "평가 항목"}</b>
+                                  <span><span className="pill gray" style={{ marginRight: 6 }}>{item.rating}</span><b>{item.score}점</b></span>
+                                </div>
+                                <div className="muted" style={{ fontSize: 13, marginTop: 5 }}>{item.reason}</div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    ) : null}
+
+                    {detail.status === "pending_review" && !readOnly && (
+                      <div className="card pad">
+                        <label className="label" htmlFor="feedback-review-note">재제출을 요청할 때 학생에게 전할 말</label>
+                        <textarea id="feedback-review-note" className="textarea" rows={3} value={teacherNote} onChange={(event) => setTeacherNote(event.target.value)} placeholder="예: 3쪽 글자가 잘려 보여요. PDF를 확인해 다시 올려 주세요." />
+                        <div className="between" style={{ marginTop: 10, gap: 8, flexWrap: "wrap" }}>
+                          <div className="center" style={{ gap: 8, flexWrap: "wrap" }}>
+                            <button className="btn sm" disabled={Boolean(busy)} onClick={() => runAction("regenerate")}><RefreshCw size={15} className={busy === "regenerate" ? "spin" : ""} /> 다시 생성</button>
+                            <button className="btn sm" disabled={Boolean(busy)} onClick={() => runAction("request_changes")}><AlertTriangle size={15} /> 재제출 요청</button>
+                          </div>
+                          <button className="btn primary" disabled={Boolean(busy)} onClick={() => runAction("approve")}>
+                            {busy === "approve" ? <Loader2 className="spin" size={16} /> : <CheckCircle2 size={16} />} 승인하고 학생에게 공개
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {detail.status === "approved" && <Banner kind="info" icon={CheckCircle2}>이 피드백은 학생 모둠에 공개되었습니다.</Banner>}
+                    {detail.status === "changes_requested" && <Banner kind="warn" icon={AlertTriangle}>학생에게 새 PDF 제출을 요청했습니다. {detail.teacherNote}</Banner>}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ---------- 교사: 통합 결과 ---------- */
 function TeacherResults({ config }) {
   const [data, setData] = useState(null);
@@ -3032,6 +3342,7 @@ function StudentApp({ config, me }) {
   const [progress, setProgress] = useState({ resultsSeen: false });
   const [sub, setSub] = useState(null);       // our group's FINAL submission
   const [draftRec, setDraftRec] = useState(null); // our group's draft + AI feedback
+  const [feedbackReview, setFeedbackReview] = useState(null);
   const [peer, setPeer] = useState(null);     // my peer evals
   const [collab, setCollab] = useState(null); // my collab ratings
   const [reflect, setReflect] = useState(null);
@@ -3040,7 +3351,7 @@ function StudentApp({ config, me }) {
   const [loaded, setLoaded] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [pg, s, d, p, c, r, stages] = await Promise.all([
+    const [pg, s, d, p, c, r, stages, review] = await Promise.all([
       store.get("me_progress", false),
       store.get("pj_sub_" + me.groupId, true),
       store.get("pj_draft_" + me.groupId, true),
@@ -3048,10 +3359,14 @@ function StudentApp({ config, me }) {
       store.get("pj_collab_" + me.key, true),
       store.get("pj_reflect_" + me.key, true),
       store.get(STUDENT_STAGE_CONTROL_KEY, true),
+      runtimeOptions().aiFeedbackApprovalRequired
+        ? callFeedbackReview("status", { groupId: me.groupId }).catch(() => null)
+        : Promise.resolve(null),
     ]);
     if (pg) setProgress(pg);
     setSub(s); setDraftRec(d); setPeer(p); setCollab(c); setReflect(r);
     setStageControl(stages || {});
+    setFeedbackReview(review);
     setLoaded(true);
   }, [me]);
   useEffect(() => { refresh(); }, [refresh]);
@@ -3064,6 +3379,12 @@ function StudentApp({ config, me }) {
     const id = setInterval(loadStages, 10000);
     return () => { cancelled = true; clearInterval(id); };
   }, []);
+  useEffect(() => {
+    if (!runtimeOptions().aiFeedbackApprovalRequired) return undefined;
+    if (!feedbackReview || !["generating", "pending_review"].includes(feedbackReview.status)) return undefined;
+    const id = setInterval(() => { refresh(); }, 5000);
+    return () => clearInterval(id);
+  }, [feedbackReview?.status, refresh]);
 
   if (!config) return <Banner kind="warn">아직 선생님이 평가를 준비하지 않았어요.</Banner>;
   if (!loaded) return <div className="center muted" style={{ padding: 40 }}><Loader2 className="spin" size={18} /> 불러오는 중…</div>;
@@ -3166,7 +3487,7 @@ function StudentApp({ config, me }) {
             </Banner>
           </div>
         )}
-        {active === "result" && <StepResult config={config} me={me} draft={draftRec} onDone={refresh} goNext={goNext} nextStepOpen={nextStepOpenFor("result")} />}
+        {active === "result" && <StepResult config={config} me={me} draft={draftRec} review={feedbackReview} onDone={refresh} goNext={goNext} nextStepOpen={nextStepOpenFor("result")} />}
         {active === "final" && <StepFinal config={config} me={me} sub={sub} draft={draftRec} onDone={refresh} goNext={goNext} nextStepOpen={nextStepOpenFor("final")} />}
         {active === "peer" && <StepPeer config={config} me={me} peer={peer} otherGroups={otherGroups} onDone={refresh} goNext={goNext} nextStepOpen={nextStepOpenFor("peer")} allowIncomplete={runtimeOptions().allowIncompletePeerStep} />}
         {active === "collab" && <StepCollab config={config} me={me} collab={collab} targets={collabTargets} onDone={refresh} goNext={goNext} nextStepOpen={nextStepOpenFor("collab")} />}
@@ -3195,7 +3516,7 @@ function StepHeader({ idx, title, sub, color, Icon }) {
 }
 
 /* ---------- STEP 1: AI 피드백 (초안 업로드) ---------- */
-function StepResult({ config, me, draft, onDone, goNext, nextStepOpen = true }) {
+function StepResult({ config, me, draft, review, onDone, goNext, nextStepOpen = true }) {
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState("");
@@ -3205,6 +3526,7 @@ function StepResult({ config, me, draft, onDone, goNext, nextStepOpen = true }) 
   const inputRef = useRef(null);
   const items = aiItems(config);
   const maxP = rubricMax(items);
+  const approvalRequired = runtimeOptions().aiFeedbackApprovalRequired;
 
   const onFile = (f) => {
     if (!f) return;
@@ -3233,6 +3555,22 @@ function StepResult({ config, me, draft, onDone, goNext, nextStepOpen = true }) 
       const draftPdfBase64 = bytesToBase64(bytes);
       const draftPdfData = "data:application/pdf;base64," + draftPdfBase64;
       const signature = await computePdfContentSignature(bytes);
+
+      if (approvalRequired) {
+        setBusyLabel("AI 피드백 생성 및 교사 검토 요청 중…");
+        await callFeedbackReview("request", {
+          groupId: me.groupId,
+          submittedBy: me.name,
+          fileName: file.name,
+          fileSize: file.size,
+          pdfData: draftPdfData,
+          contentSignature: signature,
+        });
+        await markResultsChanged("feedback-request");
+        await onDone();
+        return;
+      }
+
       cacheKeys = aiFeedbackCacheKeys(config, items, signature);
 
       setBusyLabel("같은 내용의 피드백 찾는 중…");
@@ -3355,7 +3693,7 @@ ${factCheckRules}
     } catch (e) {
       const detail = e instanceof Error && e.message ? ` (${e.message})` : "";
       setErr(`AI 피드백을 받지 못했어요. 잠시 후 다시 시도하거나, 아래에서 파일만 등록할 수 있어요.${detail}`);
-      setManual(true);
+      setManual(!approvalRequired);
     } finally {
       if (lockId && cacheKeys) {
         try {
@@ -3387,6 +3725,42 @@ ${factCheckRules}
   };
 
   const resubmit = async () => { await store.set("pj_draft_" + me.groupId, null, true); await markResultsChanged("draft-delete"); setFile(null); setManual(false); setPicks({}); await onDone(); };
+
+  if (approvalRequired && review && ["generating", "pending_review"].includes(review.status) && !draft) {
+    const generating = review.status === "generating";
+    return (
+      <div className="fade">
+        <StepHeader idx={1} title="AI 피드백 받기" color="var(--teal)" Icon={Sparkles}
+          sub="AI 피드백은 선생님이 결과물과 함께 확인한 뒤 모둠에 공개해요." />
+        <div className="card pad-lg" style={{ marginBottom: 16 }}>
+          <div className="center" style={{ alignItems: "flex-start", gap: 14 }}>
+            <span className="chip" style={{ width: 44, height: 44, background: "var(--teal-soft)", color: "var(--teal)" }}>
+              {generating ? <Loader2 className="spin" size={21} /> : <Eye size={21} />}
+            </span>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div className="eyebrow">{generating ? "AI 피드백 생성 중" : "교사 검토 대기"}</div>
+              <h2 className="h2" style={{ margin: "4px 0 6px" }}>
+                {generating ? "AI가 초안을 읽고 있어요" : "선생님이 피드백을 확인하고 있어요"}
+              </h2>
+              <p className="muted" style={{ margin: 0, lineHeight: 1.65 }}>
+                {generating
+                  ? "잠시만 기다려 주세요. 생성이 끝나면 선생님 검토 목록으로 전달됩니다."
+                  : "승인이 끝나면 이 화면에 피드백이 나타나고 최종 결과물 단계로 넘어갈 수 있어요."}
+              </p>
+              <div className="center" style={{ marginTop: 12, gap: 8, flexWrap: "wrap" }}>
+                <span className="pill gray"><FileText size={13} /> {review.fileName}</span>
+                <span className="pill gray"><Users size={13} /> 요청: {review.submittedBy}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="between">
+          <span className="hint">모둠원 모두 같은 검토 상태를 보며, 5초마다 자동으로 확인합니다.</span>
+          <button className="btn" onClick={onDone}><RefreshCw size={16} /> 지금 확인</button>
+        </div>
+      </div>
+    );
+  }
 
   // 이미 초안 제출됨 → AI 피드백 표시 (수정 참고용)
   if (draft) {
@@ -3452,7 +3826,9 @@ ${factCheckRules}
           )}
         </div>
         <div className="between">
-          <ConfirmDelete onConfirm={resubmit} label="초안 다시 올리기" Icon={RefreshCw} prompt="모둠 초안을 지우고 다시 올릴까요?" />
+          {approvalRequired
+            ? <span className="pill green"><CheckCircle2 size={14} /> 교사 검토 완료</span>
+            : <ConfirmDelete onConfirm={resubmit} label="초안 다시 올리기" Icon={RefreshCw} prompt="모둠 초안을 지우고 다시 올릴까요?" />}
           <button className="btn primary lg" disabled={!nextStepOpen} onClick={goNext}>
             {nextStepOpen ? <>다음: 최종 결과물 올리기 <ChevronRight size={17} /></> : <><Lock size={17} /> 선생님이 열면 이동</>}
           </button>
@@ -3465,8 +3841,24 @@ ${factCheckRules}
   return (
     <div className="fade">
       <StepHeader idx={1} title="AI 피드백 받기" color="var(--teal)" Icon={Sparkles}
-        sub="우리 모둠 초안을 PDF로 올리면, AI가 읽고 고치면 좋을 점을 알려줘요. (점수가 아니라 수정에 참고하는 피드백이에요.)" />
+        sub={approvalRequired
+          ? "우리 모둠 초안을 PDF로 요청하면, AI가 만든 피드백을 선생님이 먼저 확인한 뒤 알려줘요."
+          : "우리 모둠 초안을 PDF로 올리면, AI가 읽고 고치면 좋을 점을 알려줘요. (점수가 아니라 수정에 참고하는 피드백이에요.)"} />
       <Banner kind="info">결과물은 <b>모둠당 하나</b>예요. 같은 내용의 PDF는 기존 AI 피드백을 재사용해서 같은 점수와 의견이 나오게 합니다.</Banner>
+      {approvalRequired && review?.status === "changes_requested" && (
+        <div style={{ marginTop: 12 }}>
+          <Banner kind="warn" icon={AlertTriangle}>
+            선생님이 새 PDF 제출을 요청했어요. {review.teacherNote || "파일을 확인한 뒤 다시 요청해 주세요."}
+          </Banner>
+        </div>
+      )}
+      {approvalRequired && review?.status === "failed" && (
+        <div style={{ marginTop: 12 }}>
+          <Banner kind="warn" icon={AlertTriangle}>
+            AI 피드백을 만들지 못했어요. 파일을 다시 선택해 요청해 주세요.{review.error ? ` (${review.error})` : ""}
+          </Banner>
+        </div>
+      )}
       <div style={{ height: 14 }} />
       <div className="card pad-lg" style={{ marginBottom: 16 }}>
         <input ref={inputRef} type="file" accept="application/pdf" style={{ display: "none" }}
@@ -3488,12 +3880,12 @@ ${factCheckRules}
         <div className="between" style={{ marginTop: 16 }}>
           <span className="hint">피드백 기준: {items.map((i) => i.name).join(" · ")}</span>
           <button className="btn primary lg" disabled={!file || busy} onClick={runAI}>
-            {busy ? <><Loader2 className="spin" size={17} /> {busyLabel || "AI가 읽는 중…"}</> : <><Sparkles size={17} /> AI 피드백 받기</>}
+            {busy ? <><Loader2 className="spin" size={17} /> {busyLabel || "AI가 읽는 중…"}</> : <><Sparkles size={17} /> {approvalRequired ? "AI 피드백 요청하기" : "AI 피드백 받기"}</>}
           </button>
         </div>
       </div>
 
-      {manual && (
+      {manual && !approvalRequired && (
         <div className="card pad-lg fade">
           <div className="eyebrow"><PenLine size={14} /> 피드백 없이 넘어가기</div>
           <p className="muted" style={{ fontSize: 13.5, margin: "8px 0 14px" }}>AI 피드백을 받지 못했어도, 이 단계를 마치고 다음에서 최종 결과물을 올릴 수 있어요.</p>

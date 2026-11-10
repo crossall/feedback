@@ -15,7 +15,7 @@
 
 ## Route Handler 목록
 
-총 35개 Route Handler를 확인했습니다. Next.js 16에서 Route Handler는 공개 HTTP 경계이므로 각 경로에서 인증과 권한을 다시 확인해야 합니다.
+총 37개 Route Handler를 확인했습니다. Next.js 16에서 Route Handler는 공개 HTTP 경계이므로 각 경로에서 인증과 권한을 다시 확인해야 합니다.
 
 | 경로 | 메서드 | 런타임 | 최대 실행시간 초 | 구현 파일 |
 | --- | --- | --- | --- | --- |
@@ -36,6 +36,8 @@
 | /api/project_expo/storage | POST | nodejs | 60 | app/api/project_expo/storage/route.ts |
 | /api/project-instances | GET, DELETE, POST | nodejs | - | app/api/project-instances/route.ts |
 | /api/project1/claude | POST | nodejs | 60 | app/api/project1/claude/route.ts |
+| /api/project1/feedback | POST | nodejs | 60 | app/api/project1/feedback/route.ts |
+| /api/project1/review-session | GET, POST | nodejs | - | app/api/project1/review-session/route.ts |
 | /api/project1/storage | POST | nodejs | 60 | app/api/project1/storage/route.ts |
 | /api/project4/claude | POST | nodejs | 120 | app/api/project4/claude/route.ts |
 | /api/project4/storage | POST | nodejs | 60 | app/api/project4/storage/route.ts |
