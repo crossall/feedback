@@ -262,12 +262,18 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "학생과 모둠 정보를 확인해 주세요." }, { status: 400 });
       }
 
-      const existingDraft = await readProject1Shared(scope, `pj_draft_${groupId}`);
-      if (existingDraft) return NextResponse.json({ status: "approved" });
-
-      const existing = await readProject1FeedbackReview(scope, groupId);
+      const [existingDraft, existing] = await Promise.all([
+        readProject1Shared(scope, `pj_draft_${groupId}`),
+        readProject1FeedbackReview(scope, groupId),
+      ]);
       if (existing && ["generating", "pending_review"].includes(existing.status)) {
         return NextResponse.json(studentStatus(existing));
+      }
+      const canReplaceApproved = body.replaceApproved === true
+        || existing?.status === "changes_requested"
+        || existing?.status === "failed";
+      if (existingDraft && !canReplaceApproved) {
+        return NextResponse.json({ status: "approved" });
       }
 
       const fileSize = Math.round(numeric(body.fileSize));

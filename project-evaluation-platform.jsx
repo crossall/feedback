@@ -1595,14 +1595,14 @@ export default function App() {
   if (!ready)
     return (
       <div className="pj-root" style={{ display: "grid", placeItems: "center", height: "100vh" }}>
-        <style>{CSS}{opts.themeCss}</style>
+        <style dangerouslySetInnerHTML={{ __html: `${CSS}${opts.themeCss}` }} />
         <div className="center muted"><Loader2 className="spin" size={20} /> 불러오는 중…</div>
       </div>
     );
 
   return (
     <div className={`pj-root ${opts.expoMode ? "pj-expo-root" : ""} ${opts.guideMode ? "pj-guide-root" : ""} ${opts.guideMode && me?.role === "student" ? "pj-guide-student-root" : ""}`}>
-      <style>{CSS}{opts.themeCss}</style>
+      <style dangerouslySetInnerHTML={{ __html: `${CSS}${opts.themeCss}` }} />
       {showExpoEntry && <ExpoEntryCue />}
       <header className="topbar">
         <div className="topbar-in">
@@ -3397,8 +3397,11 @@ function StudentApp({ config, me }) {
   const teacherOpenStep = openStudentStepForClass(stageControl, myClassId);
   const teacherUnlocked = Object.fromEntries(STEPS.map((s) => [s.key, isStudentStepOpen(s.key, teacherOpenStep)]));
 
+  const feedbackDone = runtimeOptions().aiFeedbackApprovalRequired
+    ? !!draftRec && (!feedbackReview || ["approved", "none"].includes(feedbackReview.status))
+    : !!draftRec;
   const done = {
-    result: !!draftRec,
+    result: feedbackDone,
     final: !!sub,
     peer: otherGroups.length === 0 || (peer && otherGroups.every((g) => peer.evals && peer.evals[g.id])),
     collab: collabTargets.length === 0 || (collab && collabTargets.every((t) => collab.ratings && collab.ratings[t] && collab.ratings[t].complete)),
@@ -3522,6 +3525,7 @@ function StepResult({ config, me, draft, review, onDone, goNext, nextStepOpen = 
   const [busyLabel, setBusyLabel] = useState("");
   const [err, setErr] = useState("");
   const [manual, setManual] = useState(false);
+  const [replacing, setReplacing] = useState(false);
   const [picks, setPicks] = useState({});
   const inputRef = useRef(null);
   const items = aiItems(config);
@@ -3545,7 +3549,7 @@ function StepResult({ config, me, draft, review, onDone, goNext, nextStepOpen = 
     try {
       setBusyLabel("기존 피드백 확인 중…");
       const existingDraft = await store.get("pj_draft_" + me.groupId, true);
-      if (existingDraft) {
+      if (existingDraft && !(approvalRequired && replacing)) {
         await onDone();
         return;
       }
@@ -3565,7 +3569,9 @@ function StepResult({ config, me, draft, review, onDone, goNext, nextStepOpen = 
           fileSize: file.size,
           pdfData: draftPdfData,
           contentSignature: signature,
+          replaceApproved: replacing,
         });
+        setReplacing(false);
         await markResultsChanged("feedback-request");
         await onDone();
         return;
@@ -3726,7 +3732,7 @@ ${factCheckRules}
 
   const resubmit = async () => { await store.set("pj_draft_" + me.groupId, null, true); await markResultsChanged("draft-delete"); setFile(null); setManual(false); setPicks({}); await onDone(); };
 
-  if (approvalRequired && review && ["generating", "pending_review"].includes(review.status) && !draft) {
+  if (approvalRequired && review && ["generating", "pending_review"].includes(review.status)) {
     const generating = review.status === "generating";
     return (
       <div className="fade">
@@ -3763,7 +3769,11 @@ ${factCheckRules}
   }
 
   // 이미 초안 제출됨 → AI 피드백 표시 (수정 참고용)
-  if (draft) {
+  const publishedDraftVisible = !approvalRequired
+    || !review
+    || ["approved", "none"].includes(review.status);
+
+  if (draft && publishedDraftVisible && !replacing) {
     const sub = draft;
     return (
       <div className="fade">
@@ -3774,7 +3784,7 @@ ${factCheckRules}
           여기 점수는 <b>참고용</b>이에요. 최종 점수에는 들어가지 않고, 다른 모둠의 동료평가와 협업평가로 정해져요. 피드백을 보고 고친 다음, <b>다음 단계에서 최종 결과물</b>을 올리면 그걸로 동료평가가 진행돼요.
         </Banner>
 
-        <p className="hint" style={{ margin: "10px 2px 0" }}>이 초안은 <b>우리 모둠 공용</b>이에요. {sub.submittedBy}님이 올렸고, 모둠원 모두 같은 초안을 봅니다. ‘다시 올리기’를 하면 모둠 전체의 초안이 교체돼요.</p>
+        <p className="hint" style={{ margin: "10px 2px 0" }}>이 초안은 <b>우리 모둠 공용</b>이에요. {sub.submittedBy}님이 올렸고, 모둠원 모두 같은 초안을 봅니다. {approvalRequired ? "새 요청이 선생님에게 승인되면 모둠 전체의 초안이 교체돼요." : "‘다시 올리기’를 하면 모둠 전체의 초안이 교체돼요."}</p>
 
         <div className="card pad-lg" style={{ marginTop: 14, marginBottom: 16 }}>
           <div className="between" style={{ marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
@@ -3827,7 +3837,12 @@ ${factCheckRules}
         </div>
         <div className="between">
           {approvalRequired
-            ? <span className="pill green"><CheckCircle2 size={14} /> 교사 검토 완료</span>
+            ? <div className="center" style={{ gap: 8, flexWrap: "wrap" }}>
+                <span className="pill green"><CheckCircle2 size={14} /> 교사 검토 완료</span>
+                <button className="btn" onClick={() => { setReplacing(true); setFile(null); setErr(""); setManual(false); }}>
+                  <RefreshCw size={16} /> AI 초안 다시 올리기
+                </button>
+              </div>
             : <ConfirmDelete onConfirm={resubmit} label="초안 다시 올리기" Icon={RefreshCw} prompt="모둠 초안을 지우고 다시 올릴까요?" />}
           <button className="btn primary lg" disabled={!nextStepOpen} onClick={goNext}>
             {nextStepOpen ? <>다음: 최종 결과물 올리기 <ChevronRight size={17} /></> : <><Lock size={17} /> 선생님이 열면 이동</>}
@@ -3844,7 +3859,11 @@ ${factCheckRules}
         sub={approvalRequired
           ? "우리 모둠 초안을 PDF로 요청하면, AI가 만든 피드백을 선생님이 먼저 확인한 뒤 알려줘요."
           : "우리 모둠 초안을 PDF로 올리면, AI가 읽고 고치면 좋을 점을 알려줘요. (점수가 아니라 수정에 참고하는 피드백이에요.)"} />
-      <Banner kind="info">결과물은 <b>모둠당 하나</b>예요. 같은 내용의 PDF는 기존 AI 피드백을 재사용해서 같은 점수와 의견이 나오게 합니다.</Banner>
+      <Banner kind="info">
+        {replacing
+          ? <>새 PDF의 피드백이 선생님에게 승인될 때까지 기존 승인본은 안전하게 보관돼요.</>
+          : <>결과물은 <b>모둠당 하나</b>예요. 같은 내용의 PDF는 기존 AI 피드백을 재사용해서 같은 점수와 의견이 나오게 합니다.</>}
+      </Banner>
       {approvalRequired && review?.status === "changes_requested" && (
         <div style={{ marginTop: 12 }}>
           <Banner kind="warn" icon={AlertTriangle}>
@@ -3879,9 +3898,16 @@ ${factCheckRules}
         {err && <div style={{ marginTop: 12 }}><Banner kind="warn">{err}</Banner></div>}
         <div className="between" style={{ marginTop: 16 }}>
           <span className="hint">피드백 기준: {items.map((i) => i.name).join(" · ")}</span>
-          <button className="btn primary lg" disabled={!file || busy} onClick={runAI}>
-            {busy ? <><Loader2 className="spin" size={17} /> {busyLabel || "AI가 읽는 중…"}</> : <><Sparkles size={17} /> {approvalRequired ? "AI 피드백 요청하기" : "AI 피드백 받기"}</>}
-          </button>
+          <div className="center" style={{ gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+            {replacing && (
+              <button className="btn" disabled={busy} onClick={() => { setReplacing(false); setFile(null); setErr(""); }}>
+                기존 피드백으로 돌아가기
+              </button>
+            )}
+            <button className="btn primary lg" disabled={!file || busy} onClick={runAI}>
+              {busy ? <><Loader2 className="spin" size={17} /> {busyLabel || "AI가 읽는 중…"}</> : <><Sparkles size={17} /> {approvalRequired ? "AI 피드백 요청하기" : "AI 피드백 받기"}</>}
+            </button>
+          </div>
         </div>
       </div>
 
